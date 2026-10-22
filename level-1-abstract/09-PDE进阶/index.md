@@ -1,4 +1,10 @@
-### 10. PDE 进阶（索伯列夫空间）
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# PDE 进阶（索伯列夫空间）
+
+> 层级 1：抽象结构层 · 第 9/21 条
+
+[← 调和分析](../08-调和分析/index.md) · [总目录](../../README.md) · [点集拓扑 →](../10-点集拓扑/index.md)
 
 - 范畴：索伯列夫空间范畴
 
@@ -24,7 +30,3 @@ laplacian1D = SparseArray[{Band[{1, 1}] -> -2, Band[{1, 2}] -> 1,
 laplacian1D // MatrixForm
 (* 这是 Dirichlet 边界条件下的离散 −Δ *)
 ```
-
----
-
-## 拓扑与几何

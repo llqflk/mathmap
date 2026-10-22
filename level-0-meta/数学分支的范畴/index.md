@@ -1,4 +1,10 @@
-### 数学分支的范畴 $\mathbf{Math}$
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 数学分支的范畴 $\mathbf{Math}$
+
+> 层级 0：元框架 · 第 1/1 条
+
+[总目录](../../README.md)
 
 - 范畴：$\mathbf{Math}$——以数学分支为对象，以分支间的结构映射为态射
 
@@ -42,5 +48,3 @@ branches = <|
 homology[space_] := HomologyGroup[space];
 (* 这是本文档每一行在做的抽象动作 *)
 ```
-
----

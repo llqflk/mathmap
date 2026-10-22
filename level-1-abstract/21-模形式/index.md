@@ -1,4 +1,10 @@
-### 23. 模形式
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 模形式
+
+> 层级 1：抽象结构层 · 分组：概率结构 · 第 21/21 条
+
+[← 集合论](../20-集合论/index.md) · [总目录](../../README.md)
 
 - 范畴：$M_k(\Gamma)$ 权 $k$ 模形式空间（$\Gamma=\mathrm{SL}(2,\mathbb Z)$）
 
@@ -18,9 +24,10 @@ def sigma(k, n):
 def eisenstein_series(k, q_terms=10):
     """E_k = 1 + (2k/B_k) Σ σ_{k-1}(n) q^n"""
     from fractions import Fraction
+    # Bernoulli numbers for normalization
     B = {4: Fraction(-1, 30), 6: Fraction(1, 42)}
     coeff = Fraction(2*k, B[k]) if k in B else 1
-    series = [1]
+    series = [1]  # constant term
     for n in range(1, q_terms+1):
         series.append(int(coeff) * sigma(k-1, n))
     return series
@@ -38,8 +45,10 @@ Series[E4, {q, 0, 10}]
 (* 1 + 240q + 2160q^2 + 6720q^3 + ... *)
 
 (* Hecke 算子特征值 *)
+(* Ramanujan τ 函数 *)
 RamanujanTau[1]  (* 1 *)
 RamanujanTau[2]  (* -24 *)
+RamanujanTau[3]  (* 252 *)
 
 (* j-不变量 *)
 KleinInvariantJ[I]  (* 1728 *)

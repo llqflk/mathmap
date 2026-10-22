@@ -1,4 +1,10 @@
-### 6. 单子（Monad）
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 单子（Monad）
+
+> 层级 0.5：范畴论基础工具箱 · 第 6/6 条
+
+[← 伴随函子](../05-伴随函子/index.md) · [总目录](../../README.md)
 
 - 范畴：自函子范畴上的 Monoid——$(T,\eta,\mu)$，$T:\mathcal C\to\mathcal C$ 是自函子
 
@@ -50,5 +56,3 @@ safeDiv[a_, b_] := If[b == 0, Nothing, a/b]
 bind[pure[42], safeDiv[#, 2] &]    (* 21 *)
 bind[pure[42], safeDiv[#, 0] &]    (* Nothing *)
 ```
-
----

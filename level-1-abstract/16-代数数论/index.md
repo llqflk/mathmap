@@ -1,4 +1,10 @@
-### 17. 代数数论
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 代数数论
+
+> 层级 1：抽象结构层 · 分组：代数几何与数论 · 第 16/21 条
+
+[← 代数几何](../15-代数几何/index.md) · [总目录](../../README.md) · [概率论与随机过程 →](../17-概率论与随机过程/index.md)
 
 - 范畴：$\mathbf{NumFld}$ 数域范畴
 
@@ -40,7 +46,3 @@ KroneckerSymbol[-20, 7]                   (* 判断分裂 *)
 (* 数域整数环 *)
 ToNumberField[Sqrt[-5]]                    (* AlgebraicNumber *)
 ```
-
----
-
-## 概率结构

@@ -1,28 +1,10 @@
-### 5. 贝叶斯统计与MCMC
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
 
-- 范畴：统计模型范畴
+# 贝叶斯统计与MCMC
 
-- 对象：正态先验
+> 层级 3：模型与计算层 · 第 5/15 条
 
-- 态射：后验更新
-
-- 函子：条件概率 Monad bind
-
-- 示例：PyMC3 采样
-
-```mathematica
-(* Mathematica：贝叶斯推断 *)
-(* 正态-逆Gamma先验 → 后验更新 *)
-data = RandomVariate[NormalDistribution[5, 2], 100];
-(* 共轭先验 *)
-prior = NormalDistribution[μ0, σ0/Sqrt[n0]];
-posterior = NormalDistribution[
-    (μ0*n0 + Total[data])/(n0 + Length[data]),
-    2/Sqrt[n0 + Length[data]]];
-posterior
-```
-
-
+[← 凸优化](../04-凸优化/index.md) · [总目录](../../README.md) · [信息论 →](../06-信息论/index.md)
 
 - 范畴：$\mathbf{MC}$ 随机模拟范畴
 

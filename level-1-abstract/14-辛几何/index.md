@@ -1,4 +1,10 @@
-### 15. 辛几何
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 辛几何
+
+> 层级 1：抽象结构层 · 分组：拓扑与几何 · 第 14/21 条
+
+[← 黎曼几何 / 微分几何](../13-黎曼几何/index.md) · [总目录](../../README.md) · [代数几何 →](../15-代数几何/index.md)
 
 - 范畴：$\mathbf{Sympl}$ 辛流形范畴
 
@@ -43,7 +49,3 @@ ParametricPlot[Evaluate[{q[t], p[t]} /. sol], {t, 0, 10},
 (* 辛形式守恒验证 *)
 Simplify[D[hamiltonian /. sol, t]]  (* 0 — 能量守恒 *)
 ```
-
----
-
-## 代数几何与数论

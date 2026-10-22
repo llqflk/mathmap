@@ -1,4 +1,10 @@
-### 16. 量子计算数学
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 量子计算数学
+
+> 层级 3：模型与计算层 · 第 15/15 条
+
+[← 金融数学](../14-金融数学/index.md) · [总目录](../../README.md)
 
 - 范畴：$\mathbf{CPTP}$ 量子信道范畴——对象为有限维 Hilbert 空间 $\mathcal H$，态射为完全正保迹映射
 
@@ -54,3 +60,9 @@ QFTMatrix[n_] := FourierMatrix[2^n] / Sqrt[2^n]
 (* Schmidt 分解与纠缠度 *)
 SingularValueDecomposition[{{1,0,0,1},{0,0,0,0},{0,0,0,0},{1,0,0,1}}/2]
 ```
+
+---
+
+如果你愿意，我可以把上面**全部内容整理成一份干净的 Markdown 文档**，去掉代码块冗余，做成可直接复制到 Notion/Word 的完整版。
+
+> （注：部分内容可能由 AI 生成）

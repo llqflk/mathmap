@@ -1,5 +1,7 @@
 # 第 9 章：Jordan 标准形
 
+> [← 返回《线性代数》目录](index.md) · [总目录](../../README.md)
+
 > 不可对角化矩阵的最终分类。$\mathbb C[x]$-模结构定理 → Jordan 形。幂零部分的存在是 $\mathbf{Vect}_k$ 与 $\mathbf{Hilb}_{\text{fd}}$ 的根本区别。
 
 ---
@@ -9,6 +11,13 @@
 $J=\begin{pmatrix}0&1\\0&0\end{pmatrix}$：$m_a(0)=2$，$m_g(0)=\dim\ker J=1$。$J^2=0$，但 $J\neq0$。
 
 **几何直觉**：Jordan 块代表一个"推移"作用——$e_2\mapsto e_1\mapsto 0$，形成一个长度为 2 的链。
+
+**本章代码约定**（下文示例沿用这两个导入）
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+```
 
 ```python
 # 可视化：Jordan块的推移作用

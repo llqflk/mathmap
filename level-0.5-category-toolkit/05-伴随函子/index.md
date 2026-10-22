@@ -1,4 +1,10 @@
-### 5. 伴随函子
+<!-- 自动生成：由 tools/build.py 从 math.md 抽取。要改内容请改 math.md。 -->
+
+# 伴随函子
+
+> 层级 0.5：范畴论基础工具箱 · 第 5/6 条
+
+[← 米田嵌入](../04-米田嵌入/index.md) · [总目录](../../README.md) · [单子（Monad） →](../06-单子/index.md)
 
 - 范畴：伴随对 $(F,G,\eta,\varepsilon)$，写作 $F\dashv G$
 
@@ -19,7 +25,7 @@ F = lambda X: ('List', X)    # 自由幺半群 = 字符列表
 U = lambda M: M[1]            # 遗忘 = 取底层集合
 
 # 伴随同构：从自由幺半群到M的同态 ↔ 从集合X到U(M)的函数
-def adjunction(f_map, X_elements):
+def adjunction(f, X_elements):
     """自由幺半群上的同态完全由生成元上的映射决定"""
     return {x: f(x) for x in X_elements}
 
