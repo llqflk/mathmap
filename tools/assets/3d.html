@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三维直观 · 二次曲面与线性映射</title>
+<style>
+  :root { --bg:#12151b; --fg:#e8e6e1; --muted:#8b93a1; --line:#242a34; --accent:#f0a04b; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font: 14px/1.7 -apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif; }
+  .wrap { display:flex; height:100vh; }
+  aside { width:320px; flex:0 0 320px; padding:22px 20px; border-right:1px solid var(--line);
+    overflow-y:auto; background:#151922; }
+  aside h1 { font-size:20px; margin:0 0 2px; }
+  aside .lead { color:var(--muted); font-size:12px; margin:0 0 18px; }
+  aside a.back { color:var(--muted); font-size:12px; text-decoration:none; }
+  aside a.back:hover { color:var(--accent); }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 16px; }
+  .tabs button { font:inherit; font-size:12.5px; padding:5px 10px; cursor:pointer;
+    background:#1d2330; color:#c9d1de; border:1px solid var(--line); border-radius:999px; }
+  .tabs button:hover { border-color:#3a4557; }
+  .tabs button.on { background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600; }
+  .info h2 { font-size:15px; margin:0 0 8px; }
+  .info .eq { font-family:"Cambria Math",Georgia,serif; font-size:15px; color:#ffd9a8;
+    background:#1b2130; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:8px 0 12px; }
+  .info dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:0 0 12px; font-size:13px; }
+  .info dt { color:var(--muted); }
+  .info dd { margin:0; }
+  .info p.note { color:#b9c2d0; font-size:12.5px; margin:10px 0 0; padding-top:10px; border-top:1px dashed var(--line); }
+  .hint { color:var(--muted); font-size:12px; margin-top:18px; }
+  main { flex:1 1 auto; position:relative; min-width:0; }
+  canvas { display:block; width:100%; height:100%; cursor:grab; touch-action:none; }
+  canvas.drag { cursor:grabbing; }
+  .toolbar { position:absolute; right:16px; top:14px; display:flex; gap:8px; }
+  .toolbar button { font:inherit; font-size:12px; padding:5px 10px; cursor:pointer;
+    background:rgba(30,36,48,.85); color:#c9d1de; border:1px solid var(--line); border-radius:8px; }
+  .toolbar button:hover { border-color:#3a4557; }
+  .legend { position:absolute; left:16px; bottom:14px; color:var(--muted); font-size:12px; }
+  @media (max-width:820px){ .wrap{ flex-direction:column; } aside{ width:auto; flex:0 0 auto; max-height:44vh; border-right:0; border-bottom:1px solid var(--line);} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <a class="back" href="/index.html">← 返回文档目录</a>
+    <h1>三维直观</h1>
+    <p class="lead">二次型 / 二次曲面 / 线性映射</p>
+    <div class="tabs" id="tabs"></div>
+    <div class="info" id="info"></div>
+    <p class="hint">拖动旋转 · 滚轮缩放 · 双击复位视角</p>
+  </aside>
+  <main>
+    <canvas id="c"></canvas>
+    <div class="toolbar">
+      <button id="spin">暂停自转</button>
+      <button id="reset">复位</button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </main>
+</div>
+<script>
+'use strict';
+
+/* ============ 画布 ============ */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.round(r.width); H = Math.round(r.height);
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+/* ============ 视角 ============ */
+let yaw = -0.7, pitch = 0.42, zoom = 1, autoSpin = true, dragging = false;
+const R0 = { yaw: -0.7, pitch: 0.42, zoom: 1 };
+
+/* ============ 曲面定义 ============ */
+const TAU = Math.PI * 2;
+const cosh = Math.cosh, sinh = Math.sinh;
+
+const SURFACES = [
+  {
+    id: 'ellipsoid', name: '椭球', tag: '正定',
+    eq: 'x²/1.44 + y²/0.64 + z²/1 = 1',
+    inertia: '惯性指数 (3, 0, 0)', sign: '正定',
+    note: 'A 正定 ⟺ 三个特征值同号，等值面是有界椭球；三个半轴长 = 特征值的 −1/2 次幂。',
+    sheets: [ (u, v) => {
+      const t = u * Math.PI, f = v * TAU;
+      return [1.2 * Math.sin(t) * Math.cos(f), 0.8 * Math.sin(t) * Math.sin(f), 1.0 * Math.cos(t)];
+    } ],
+    range: [-1.0, 1.0]
+  },
+  {
+    id: 'hyper1', name: '单叶双曲面', tag: '不定 (2,1,0)',
+    eq: 'x² + y² − z² = 1',
+    inertia: '惯性指数 (2, 1, 0)', sign: '不定，负惯性指数 1',
+    note: '一叶连通、可直纹：每点有一条直线完全落在曲面上（马鞍面的近亲），双曲抛物面是它的仿射像。',
+    sheets: [ (u, v) => {
+      const t = (u - 0.5) * 2.6, f = v * TAU;
+      return [cosh(t) * Math.cos(f), cosh(t) * Math.sin(f), sinh(t)];
+    } ],
+    range: [-1.2, 1.2]
+  },
+  {
+    id: 'hyper2', name: '双叶双曲面', tag: '不定 (1,2,0)',
+    eq: 'x² + y² − z² = −1',
+    inertia: '惯性指数 (1, 2, 0)', sign: '不定，负惯性指数 2',
+    note: '两叶不连通——负特征值对应的坐标被“困住”，z 永远满足 |z| ≥ 1。',
+    sheets: [
+      (u, v) => { const t = u * 1.3, f = v * TAU; return [sinh(t) * Math.cos(f), sinh(t) * Math.sin(f), cosh(t)]; },
+      (u, v) => { const t = u * 1.3, f = v * TAU; return [sinh(t) * Math.cos(f), sinh(t) * Math.sin(f), -cosh(t)]; }
+    ],
+    range: [-1.5, 1.5]
+  },
+  {
+    id: 'cone', name: '锥面', tag: '退化 (2,1,1)',
+    eq: 'x² + y² − z² = 0',
+    inertia: '惯性指数 (2, 1, 0)，秩 3 但右端 0', sign: '半正定型，等值面退化',
+    note: '右端为 0 时椭球退化成锥面：秩不变，但水平集不再是闭曲面，而是渐近锥。',
+    sheets: [
+      (u, v) => { const t = u * 1.35, f = v * TAU; return [t * Math.cos(f), t * Math.sin(f), t]; },
+      (u, v) => { const t = u * 1.35, f = v * TAU; return [t * Math.cos(f), t * Math.sin(f), -t]; }
+    ],
+    range: [-1.35, 1.35]
+  },
+  {
+    id: 'paraboloid', name: '椭圆抛物面', tag: '半正定 (2,0,1)',
+    eq: 'z = x² + y²',
+    inertia: '惯性指数 (2, 0, 0)，增广后 (3,0,1)', sign: '正定部分 + 线性项',
+    note: '正定二次型加线性项 = 抛物面；顶点是唯一的全局极小点，梯度下降在这里必然收敛。',
+    sheets: [ (u, v) => { const x = (u - 0.5) * 2.3, y = (v - 0.5) * 2.3; return [x, y, (x * x + y * y) * 0.55]; } ],
+    range: [0, 1.6]
+  },
+  {
+    id: 'saddle', name: '马鞍面', tag: '不定 (1,1,1)',
+    eq: 'z = x² − y²',
+    inertia: '惯性指数 (1, 1, 0)', sign: '不定，原点为鞍点',
+    note: '负惯性指数 1 的几何后果：原点沿 x 方向上升、沿 y 方向下降，牛顿法在此不收敛。',
+    sheets: [ (u, v) => { const x = (u - 0.5) * 2.3, y = (v - 0.5) * 2.3; return [x, y, (x * x - y * y) * 0.75]; } ],
+    range: [-1.7, 1.7]
+  },
+  {
+    id: 'linear', name: '线性映射', tag: 'A: R³→R³',
+    eq: 'A = [[1.4, 0.5, 0], [0.2, 0.9, 0], [0, 0, 1.1]]',
+    inertia: 'σ = (1.53, 0.79, 1.10)', sign: '单位球 → 椭球',
+    note: '内：单位球（灰色线框）。外：A 作用后的像 = 椭球，半轴长 = 奇异值。奇异值分解 A = UΣVᵀ 把“旋转 → 拉伸 → 旋转”三步拆开。',
+    linear: true,
+    sheets: [ (u, v) => {
+      const t = u * Math.PI, f = v * TAU;
+      return [Math.sin(t) * Math.cos(f), Math.sin(t) * Math.sin(f), Math.cos(t)];
+    } ],
+    range: [-1.6, 1.6]
+  }
+];
+
+const A = [[1.4, 0.5, 0], [0.2, 0.9, 0], [0, 0, 1.1]];
+const applyA = p => [
+  A[0][0] * p[0] + A[0][1] * p[1] + A[0][2] * p[2],
+  A[1][0] * p[0] + A[1][1] * p[1] + A[1][2] * p[2],
+  A[2][0] * p[0] + A[2][1] * p[1] + A[2][2] * p[2]
+];
+
+/* ============ 网格 ============ */
+const NU = 30, NV = 54;
+
+function buildMesh(fn, transform) {
+  const pts = [], quads = [];
+  for (let i = 0; i <= NU; i++) {
+    for (let j = 0; j <= NV; j++) {
+      let p = fn(i / NU, j / NV);
+      if (transform) p = transform(p);
+      pts.push(p);
+    }
+  }
+  const at = (i, j) => i * (NV + 1) + j;
+  for (let i = 0; i < NU; i++) {
+    for (let j = 0; j < NV; j++) {
+      const a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+      const ps = [pts[a], pts[b], pts[c], pts[d]];
+      if (ps.some(q => !isFinite(q[0]) || !isFinite(q[1]) || !isFinite(q[2]))) continue;
+      quads.push([a, b, c, d]);
+    }
+  }
+  return { pts, quads };
+}
+
+let current = SURFACES[0];
+let meshes = [];
+let meshRadius = 1.5;
+
+function rebuild() {
+  meshes = current.sheets.map(fn => buildMesh(fn, current.linear ? null : null));
+  if (current.linear) {
+    const sphere = buildMesh(current.sheets[0]);
+    const image = buildMesh(current.sheets[0], applyA);
+    meshes = [sphere, image];
+  }
+  meshRadius = 1;
+  for (const m of meshes) for (const p of m.pts) {
+    const r = Math.hypot(p[0], p[1], p[2]);
+    if (r > meshRadius) meshRadius = r;
+  }
+  renderLegend();
+}
+
+/* ============ 渲染 ============ */
+const LIGHT = [-0.35, -0.55, 0.76];
+
+function render() {
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+
+  // 背景网格（地面 z = zmin 的极坐标网格），给一点空间感
+  const cx = W / 2, cy = H / 2;
+  const s = Math.min(W, H) * 0.40 / Math.max(0.5, meshRadius) * zoom;
+  const cyaw = Math.cos(yaw), syaw = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+
+  function cam(p) {
+    const x1 = p[0] * cyaw - p[1] * syaw;
+    const y1 = p[0] * syaw + p[1] * cyaw;
+    return [cx + x1 * s, cy - (p[2] * cp - y1 * sp) * s, y1 * cp + p[2] * sp];
+  }
+
+  // 三轴
+  const ax = meshRadius * 1.15;
+  const axes = [
+    { v: [ax, 0, 0], c: 'rgba(240,120,120,.55)', label: 'x' },
+    { v: [0, ax, 0], c: 'rgba(120,220,150,.55)', label: 'y' },
+    { v: [0, 0, ax], c: 'rgba(130,170,255,.55)', label: 'z' }
+  ];
+  for (const ax of axes) {
+    const a = cam([0, 0, 0]), b = cam(ax.v);
+    ctx.strokeStyle = ax.c; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    ctx.fillStyle = ax.c; ctx.font = '12px ui-monospace, monospace';
+    ctx.fillText(ax.label, b[0] + 4, b[1] - 4);
+  }
+
+  // 收集四边形并排序
+  const faces = [];
+  meshes.forEach((mesh, mi) => {
+    const n = mesh.pts.length;
+    const proj = new Array(n);
+    for (let i = 0; i < n; i++) proj[i] = cam(mesh.pts[i]);
+    for (const q of mesh.quads) {
+      const [a, b, c, d] = q;
+      const pa = proj[a], pb = proj[b], pc = proj[c], pd = proj[d];
+      const depth = (pa[2] + pb[2] + pc[2] + pd[2]) / 4;
+      // 法向（世界坐标）用于简单光照
+      const P0 = mesh.pts[a], P1 = mesh.pts[b], P2 = mesh.pts[c];
+      const ux = P1[0] - P0[0], uy = P1[1] - P0[1], uz = P1[2] - P0[2];
+      const vx = P2[0] - P0[0], vy = P2[1] - P0[1], vz = P2[2] - P0[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      nx /= len; ny /= len; nz /= len;
+      const lambert = Math.abs(nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+      faces.push({ quad: [pa, pb, pc, pd], depth, z: (P0[2] + P1[2] + P2[2]) / 3, shade: 0.35 + 0.65 * lambert, mi });
+    }
+  });
+  faces.sort((a, b) => b.depth - a.depth);
+
+  const [zmin, zmax] = current.range;
+  for (const f of faces) {
+    const t = Math.max(0, Math.min(1, (f.z - zmin) / (zmax - zmin || 1)));
+    const hue = 205 - 190 * t;
+    const light = Math.round(18 + 52 * f.shade);
+    ctx.fillStyle = f.mi === 0 && current.linear
+      ? 'rgba(0,0,0,0)'
+      : 'hsl(' + hue + ', 62%, ' + light + '%)';
+    ctx.strokeStyle = 'rgba(0,0,0,.10)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    const q = f.quad;
+    ctx.moveTo(q[0][0], q[0][1]);
+    ctx.lineTo(q[1][0], q[1][1]);
+    ctx.lineTo(q[2][0], q[2][1]);
+    ctx.lineTo(q[3][0], q[3][1]);
+    ctx.closePath();
+    if (current.linear && f.mi === 0) { continue; }
+    ctx.fill(); ctx.stroke();
+  }
+
+  if (current.linear) {                       // 单位球线框：最后画，透出来
+    const sphere = meshes[0];
+    const pr = sphere.pts.map(cam);
+    ctx.strokeStyle = 'rgba(175,195,225,.45)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (const q of sphere.quads) {
+      ctx.moveTo(pr[q[0]][0], pr[q[0]][1]);
+      ctx.lineTo(pr[q[1]][0], pr[q[1]][1]);
+      ctx.lineTo(pr[q[2]][0], pr[q[2]][1]);
+      ctx.lineTo(pr[q[3]][0], pr[q[3]][1]);
+      ctx.closePath();
+    }
+    ctx.stroke();
+  }
+}
+
+/* ============ 动画 ============ */
+function tick() {
+  if (autoSpin && !dragging) yaw += 0.0035;
+  render();
+  requestAnimationFrame(tick);
+}
+
+/* ============ 交互 ============ */
+let last = null;
+canvas.addEventListener('pointerdown', e => {
+  dragging = true; last = { x: e.clientX, y: e.clientY };
+  canvas.classList.add('drag'); canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!dragging || !last) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y;
+  last = { x: e.clientX, y: e.clientY };
+  yaw += dx * 0.01;
+  pitch = Math.max(-1.35, Math.min(1.35, pitch + dy * 0.008));
+});
+canvas.addEventListener('pointerup', () => { dragging = false; last = null; canvas.classList.remove('drag'); });
+canvas.addEventListener('pointercancel', () => { dragging = false; last = null; canvas.classList.remove('drag'); });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom = Math.max(0.45, Math.min(2.4, zoom * (e.deltaY > 0 ? 0.93 : 1.07)));
+}, { passive: false });
+canvas.addEventListener('dblclick', () => { yaw = R0.yaw; pitch = R0.pitch; zoom = R0.zoom; });
+
+document.getElementById('reset').onclick = () => { yaw = R0.yaw; pitch = R0.pitch; zoom = R0.zoom; };
+document.getElementById('spin').onclick = e => {
+  autoSpin = !autoSpin;
+  e.target.textContent = autoSpin ? '暂停自转' : '继续自转';
+};
+
+/* ============ 侧栏 ============ */
+const tabs = document.getElementById('tabs');
+const info = document.getElementById('info');
+
+SURFACES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.textContent = s.name;
+  b.onclick = () => select(i);
+  tabs.appendChild(b);
+});
+
+function select(i) {
+  current = SURFACES[i];
+  [...tabs.children].forEach((b, k) => b.classList.toggle('on', k === i));
+  if (history.replaceState) history.replaceState(null, '', '#' + current.id);
+  info.innerHTML =
+    '<h2>' + current.name + ' <span style="color:#8b93a1;font-weight:400;font-size:12px">' + current.tag + '</span></h2>' +
+    '<div class="eq">' + current.eq + '</div>' +
+    '<dl><dt>惯性指数</dt><dd>' + current.inertia + '</dd>' +
+    '<dt>定型</dt><dd>' + current.sign + '</dd></dl>' +
+    '<p class="note">' + current.note + '</p>';
+  rebuild();
+}
+
+function renderLegend() {
+  const el = document.getElementById('legend');
+  el.textContent = current.linear
+    ? '灰线框：单位球 · 彩色：A 的像（椭球，半轴 = 奇异值）'
+    : '颜色 = z 坐标（' + current.range[0].toFixed(2) + ' → ' + current.range[1].toFixed(2) + '）';
+}
+
+/* ============ 启动 ============ */
+resize();
+const want = (location.hash || '').replace('#', '');
+const startAt = SURFACES.findIndex(s => s.id === want);
+select(startAt >= 0 ? startAt : 0);
+tick();
+</script>
+</body>
+</html>

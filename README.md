@@ -114,6 +114,8 @@
 python tools/build.py           # 从 math.md 重新生成 README.md 与各主题 index.md
 python tools/build.py --check   # 只校验：编号↔目录是否对齐、相对链接是否都可解析
 python tools/check.py           # 逐个运行文中 Python 示例（-v 显示每个块的位置）
+python tools/site.py            # 生成静态站点 _site/（含三维交互页 /3d.html）
+python -m http.server 8765 --directory _site   # 打开 http://127.0.0.1:8765/
 ```
 
 `check.py` 的判定分五档：独立跑通 / 依赖同文件前文 / 用 matplotlib 替身跑通（数值逻辑已验证、绘图未验证）/ 缺库跳过 / 失败。装了 `numpy` 就能跑通绝大多数示例，`scipy`、`matplotlib`、`networkx` 只影响个别条目。
