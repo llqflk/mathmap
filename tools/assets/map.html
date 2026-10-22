@@ -328,7 +328,9 @@ const panelBody = document.getElementById('panelBody');
 
 function showPanel(n) {
   const lv = DATA.levels.find(l => l.key === n.level);
-  const nb = [...(neighbors[n.id] || [])]\n    .filter(id => !(n.children && byId[id].child))\n    .map(id => byId[id].short).join('、') || '—';
+  const nb = [...(neighbors[n.id] || [])]
+    .filter(id => !(n.children && byId[id].child))
+    .map(id => byId[id].short).join('、') || '—';
   const badge = n.child ? ('线性代数讲义 · ' + n.title) : (lv.name + ' · 第 ' + (n.num || 1) + ' 条');
   let extra = '';
   if (n.children && n.children.length) {
@@ -432,11 +434,6 @@ document.getElementById('sub').textContent =
   (DATA.nodes.length - chN) + ' 个条目' + (chN ? ' + ' + chN + ' 章讲义' : '') + ' · 滚轮缩放 / 拖动平移';
 // 支持 #sel=节点ID 直接定位（方便分享/截图）
 const qs = new URLSearchParams(location.hash.replace(/^#/, ''));
-if (qs.has('sel') && byId[qs.get('sel')]) {
-  const n0 = byId[qs.get('sel')];
-  select(n0);
-  cam.x = n0.x; cam.y = n0.y; cam.zoom = Math.max(cam.zoom, 0.75);
-}
 
 function loop() { draw(); requestAnimationFrame(loop); }
 resize();
