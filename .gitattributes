@@ -1,0 +1,3 @@
+# 统一换行符，避免 Windows / macOS 之间的整文件 diff
+* text=auto
+*.md text eol=lf
