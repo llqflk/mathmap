@@ -16,6 +16,7 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import maplayout
 from build import LEVELS, LEVEL_TITLE, EXPANDED, ROOT, parse, read_source, resolve  # noqa: E402
 
 OUT = os.path.join(ROOT, "_site")
@@ -284,7 +285,7 @@ def collect():
 def sidebar_html(pages, current_url):
     out = ['<a class="brand" href="/index.html">数学范畴与应用实例</a>',
            '<div class="tagline">范畴论视角下的数学地图 · 54 条</div>',
-           '<div class="hot"><a href="/map.html">◆ 三维知识地图</a><br>'
+           '<div class="hot"><a href="/map.html">◆ 天赋树地图</a><br>'
            '<a href="/3d.html">◆ 三维曲面（交互）</a></div>']
     for lvl, _, _ in LEVELS:
         items = [p for p in pages if p["level"] == lvl]
@@ -339,11 +340,11 @@ padding:8px 12px;border-radius:6px;font-size:13px;color:#8a5a1a;margin:0 0 16px}
 # ------------------------------------------------------------------ 三维地图
 
 MAP_LEVELS = [
-    ("0", "层级 0 · 元框架", "L0", 7.4, 0.0, "#f0a04b"),
-    ("0.5", "层级 0.5 · 范畴论工具箱", "L0.5", 5.5, 2.0, "#e06c75"),
-    ("1", "层级 1 · 抽象结构", "L1", 2.9, 4.3, "#61afef"),
-    ("2", "层级 2 · 具体实例", "L2", -0.1, 3.0, "#98c379"),
-    ("3", "层级 3 · 模型计算", "L3", -3.1, 3.7, "#c678dd"),
+    ("0", "层级 0 · 元框架", "起点", 0, 36, "#f0a04b"),
+    ("0.5", "层级 0.5 · 范畴论工具箱", "工具", 210, 26, "#e06c75"),
+    ("1", "层级 1 · 抽象结构", "抽象", 500, 21, "#61afef"),
+    ("2", "层级 2 · 具体实例", "实例", 790, 18, "#98c379"),
+    ("3", "层级 3 · 模型计算", "计算", 1080, 15, "#c678dd"),
 ]
 
 EDGE_COLOR = {"meta": "#8b93a1", "tool": "#e5c07b", "struct": "#61afef",
@@ -456,22 +457,20 @@ def build_map():
     def nid(level, num):
         return "L%s-%02d" % (level.replace(".", ""), int(num or 1))
 
-    levels = [dict(key=k, name=name, short=short, y=y, radius=r, color=c)
-              for k, name, short, y, r, c in MAP_LEVELS]
+    levels = [dict(key=k, name=name, short=short, ring=ring, size=size, color=color)
+              for k, name, short, ring, size, color in MAP_LEVELS]
+    rings = {k: ring for k, _n, _s, ring, _z, _c in MAP_LEVELS}
 
     nodes = []
-    for li, (lvl, _name, _short, y, radius, color) in enumerate(MAP_LEVELS):
+    for lvl, _name, _short, _ring, size, color in MAP_LEVELS:
         items = sorted([s for s in plan if s["level"] == lvl], key=lambda s: (s["num"] or 0))
-        n = max(1, len(items))
-        for i, s in enumerate(items):
-            ang = -math.pi / 2 + 2 * math.pi * i / n + 0.25 * li
+        for s in items:
             num = s["num"] or 1
             node = dict(
-                id=nid(lvl, num), level=lvl, num=num,
+                id=nid(lvl, num), level=lvl, num=num, size=size,
                 title=plain_math(s["title"]), short=short_title(s["title"]),
                 cat=category_of(s), url=s["path"] + "/index.html",
                 color=color,
-                x=round(radius * math.cos(ang), 3), y=y, z=round(radius * math.sin(ang), 3),
             )
             if node["id"] in MAP_QUADRIC:
                 node["quadric"] = MAP_QUADRIC[node["id"]]
@@ -486,6 +485,10 @@ def build_map():
             edges.append(dict(a=a, b=b, label=label, kind=kind, color=EDGE_COLOR[kind]))
         else:
             missing.append((a, b, label))
+
+    pos = maplayout.radial_layout(nodes, edges, rings)
+    for n in nodes:
+        n["x"], n["y"] = pos[n["id"]]
 
     tpl = open(os.path.join(ASSETS, "map.html"), encoding="utf-8").read()
     html = (tpl.replace("/*__DATA__*/", json.dumps(dict(levels=levels, nodes=nodes),
@@ -548,7 +551,7 @@ def build():
 
     n_nodes, n_edges, missing = build_map()
     dead = check_links()
-    print("✓ 生成 %d 页 + 三维地图（%d 节点 / %d 条关系）到 %s"
+    print("✓ 生成 %d 页 + 天赋树地图（%d 节点 / %d 条关系）到 %s"
           % (len(pages) + 3, n_nodes, n_edges, OUT))
     for a, b, label in missing:
         print("  ! 关系指向不存在的节点：%s → %s（%s）" % (a, b, label))

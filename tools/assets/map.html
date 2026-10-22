@@ -3,36 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>数学的三维地图 · 数学范畴与应用实例</title>
+<title>数学天赋树 · 数学范畴与应用实例</title>
 <style>
-  :root { --bg:#0b0e14; --fg:#e6e9ef; --muted:#8b93a1; --line:#1e2430; --accent:#f0a04b; }
+  :root { --bg:#0a0c11; --fg:#e6e9ef; --muted:#8b93a1; --line:#1e2430; --accent:#f0a04b; }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
     font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif; }
-  #map { position:fixed; inset:0; width:100%; height:100%; cursor:grab; touch-action:none; }
-  #map.drag { cursor:grabbing; }
-  .hud { position:fixed; left:22px; top:18px; width:270px; pointer-events:none; }
+  #tree { position:fixed; inset:0; width:100%; height:100%; cursor:grab; touch-action:none; }
+  #tree.drag { cursor:grabbing; }
+
+  .hud { position:fixed; left:22px; top:18px; width:274px; pointer-events:none; }
   .hud h1 { font-size:19px; margin:0 0 2px; letter-spacing:.02em; }
   .hud .sub { color:var(--muted); font-size:12px; margin:0 0 12px; }
   .hud input { pointer-events:auto; width:100%; padding:7px 10px; font:inherit; font-size:13px;
-    color:var(--fg); background:rgba(20,26,36,.9); border:1px solid var(--line); border-radius:8px; outline:none; }
+    color:var(--fg); background:rgba(18,23,32,.92); border:1px solid var(--line); border-radius:8px; outline:none; }
   .hud input:focus { border-color:#3a4557; }
-  .hud .results { margin-top:6px; max-height:210px; overflow:auto; pointer-events:auto; }
-  .hud .results a { display:block; padding:4px 8px; font-size:12.5px; color:#c9d1de; text-decoration:none;
-    border-radius:6px; }
+  .hud .results { margin-top:6px; max-height:200px; overflow:auto; pointer-events:auto; }
+  .hud .results a { display:block; padding:4px 8px; font-size:12.5px; color:#c9d1de; text-decoration:none; border-radius:6px; }
   .hud .results a:hover { background:#1b2230; }
-  .hud .legend { margin-top:14px; font-size:11.5px; color:var(--muted); }
-  .hud .legend div { display:flex; align-items:center; gap:7px; margin:3px 0; }
-  .hud .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
-  .hud .legend i.line { width:16px; height:2px; border-radius:2px; }
+  .legend { margin-top:14px; font-size:11.5px; color:var(--muted); }
+  .legend div { display:flex; align-items:center; gap:7px; margin:3px 0; }
+  .legend i { width:9px; height:9px; display:inline-block; background:#666; }
+  .legend i.c { border-radius:50%; }
+  .legend i.h { clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); }
+  .legend i.line { width:16px; height:2px; border-radius:2px; }
+
   .toolbar { position:fixed; right:18px; top:16px; display:flex; gap:8px; }
   .toolbar button { font:inherit; font-size:12px; padding:6px 11px; cursor:pointer; color:#c9d1de;
-    background:rgba(24,30,42,.9); border:1px solid var(--line); border-radius:8px; }
+    background:rgba(22,28,38,.92); border:1px solid var(--line); border-radius:8px; }
   .toolbar button:hover { border-color:#3a4557; }
   .toolbar button.off { opacity:.45; }
-  .panel { position:fixed; right:18px; bottom:18px; width:330px; max-height:56vh; overflow:auto;
-    background:rgba(18,23,33,.96); border:1px solid var(--line); border-radius:12px; padding:16px 18px;
-    transform:translateY(12px); opacity:0; pointer-events:none; transition:.18s; }
+
+  .tip { position:fixed; pointer-events:none; max-width:320px; padding:9px 12px; border-radius:9px;
+    background:rgba(16,21,30,.97); border:1px solid #2b3446; box-shadow:0 8px 24px rgba(0,0,0,.5);
+    opacity:0; transform:translateY(4px); transition:opacity .1s; z-index:20; }
+  .tip.on { opacity:1; transform:none; }
+  .tip b { display:block; font-size:13.5px; margin-bottom:3px; }
+  .tip span { color:var(--muted); font-size:11.5px; }
+
+  .panel { position:fixed; right:18px; bottom:18px; width:340px; max-height:60vh; overflow:auto;
+    background:rgba(16,21,30,.97); border:1px solid #2b3446; border-radius:12px; padding:16px 18px;
+    transform:translateY(12px); opacity:0; pointer-events:none; transition:.18s; z-index:21; }
   .panel.on { transform:none; opacity:1; pointer-events:auto; }
   .panel .badge { font-size:11px; color:var(--muted); letter-spacing:.04em; }
   .panel h2 { font-size:16px; margin:4px 0 10px; line-height:1.4; }
@@ -44,43 +55,46 @@
     color:#10151d; background:var(--accent); font-weight:600; }
   .panel .acts a.ghost { background:transparent; color:#c9d1de; border:1px solid var(--line); font-weight:400; }
   .panel .close { position:absolute; right:12px; top:10px; cursor:pointer; color:var(--muted); font-size:16px; }
-  .hint { position:fixed; left:22px; bottom:16px; color:var(--muted); font-size:11.5px; }
+  .hint { position:fixed; left:22px; bottom:14px; color:var(--muted); font-size:11.5px; }
+
   @media (max-width:820px){ .hud{ width:calc(100% - 44px); } .panel{ left:18px; right:18px; width:auto; } }
 </style>
 </head>
 <body>
-<canvas id="map"></canvas>
+<canvas id="tree"></canvas>
 
 <div class="hud">
-  <h1>数学的三维地图</h1>
-  <p class="sub">54 个条目 · 5 个层级 · 拖动旋转 / 滚轮缩放 / 点击节点</p>
-  <input id="q" type="search" placeholder="搜索条目，例如：同调、辛、MCMC">
+  <h1>数学天赋树</h1>
+  <p class="sub">54 个节点 · 5 个环 · 滚轮缩放 / 拖动平移 / 点击查看</p>
+  <input id="q" type="search" placeholder="搜索节点，例如：同调、辛、MCMC">
   <div class="results" id="results"></div>
   <div class="legend">
-    <div><i style="background:#f0a04b"></i>层级 0 元框架</div>
-    <div><i style="background:#e06c75"></i>层级 0.5 范畴论工具</div>
-    <div><i style="background:#61afef"></i>层级 1 抽象结构</div>
-    <div><i style="background:#98c379"></i>层级 2 具体实例</div>
-    <div><i style="background:#c678dd"></i>层级 3 模型计算</div>
-    <div style="margin-top:8px"><i class="line" style="background:#e5c07b"></i>工具关系</div>
-    <div><i class="line" style="background:#61afef"></i>结构关系</div>
+    <div><i class="c" style="background:#f0a04b"></i>层级 0 元框架（起点）</div>
+    <div><i class="h" style="background:#e06c75"></i>层级 0.5 范畴论工具箱</div>
+    <div><i class="c" style="background:#61afef"></i>层级 1 抽象结构</div>
+    <div><i class="c" style="background:#98c379"></i>层级 2 具体实例</div>
+    <div><i class="c" style="background:#c678dd"></i>层级 3 模型计算</div>
+    <div style="margin-top:8px"><i class="line" style="background:#e5c07b"></i>工具</div>
+    <div><i class="line" style="background:#61afef"></i>结构</div>
     <div><i class="line" style="background:#98c379"></i>实例化</div>
     <div><i class="line" style="background:#c678dd"></i>算法化</div>
   </div>
 </div>
 
 <div class="toolbar">
+  <button id="bFit">适配视图</button>
   <button id="bEdges">连线</button>
   <button id="bLabels">标签</button>
-  <button id="bReset">复位</button>
 </div>
+
+<div class="tip" id="tip"></div>
 
 <aside class="panel" id="panel">
   <span class="close" id="close">×</span>
   <div id="panelBody"></div>
 </aside>
 
-<div class="hint">悬停看邻居 · 点击看详情 · 双击打开文档 · 点击空白取消选择</div>
+<div class="hint">滚轮缩放 · 拖动平移 · 点击节点看详情 · 双击打开文档 · Esc 取消</div>
 
 <script>
 'use strict';
@@ -89,50 +103,26 @@ window.addEventListener('error', function (e) {
   d.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
     'color:#ff9b93;font:14px/1.6 ui-monospace,Consolas,monospace;background:#1b1013;' +
     'padding:16px 20px;border:1px solid #5a2a2a;border-radius:10px;max-width:70vw;z-index:99';
-  d.textContent = '地图脚本出错：' + e.message + '（第 ' + e.lineno + ' 行）';
+  d.textContent = '天赋树脚本出错：' + e.message + '（第 ' + e.lineno + ' 行）';
   document.body.appendChild(d);
 });
+
 const DATA = /*__DATA__*/;
 const EDGES = /*__EDGES__*/;
+const byId = {};
 
 /* ---------------- 画布 ---------------- */
-const cv = document.getElementById('map');
+const cv = document.getElementById('tree');
 const ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-}
-window.addEventListener('resize', resize);
-
-/* ---------------- 视图 ---------------- */
-const view = { yaw: 0.62, pitch: 0.46, zoom: 1.12, focal: 760, dist: 18.5 };
-const HOME = { ...view };
+const cam = { x: 0, y: 0, zoom: 0.2 };
 let hover = null, sel = null, showEdges = true, showLabels = true, dragging = false;
 
-const qs = new URLSearchParams(location.hash.replace(/^#/, ''));
-if (qs.has('yaw')) view.yaw = parseFloat(qs.get('yaw'));
-if (qs.has('pitch')) view.pitch = parseFloat(qs.get('pitch'));
-if (qs.has('zoom')) view.zoom = parseFloat(qs.get('zoom'));
-if (qs.get('noedge') === '1') showEdges = false;
-
-/* ---------------- 投影 ---------------- */
-function project(p) {
-  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
-  const x1 = p[0] * cy - p[2] * sy;
-  const z1 = p[0] * sy + p[2] * cy;
-  const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
-  const y2 = p[1] * cp - z1 * sp;
-  const z2 = p[1] * sp + z1 * cp;
-  const d = view.dist - z2;
-  const k = (view.focal * view.zoom) / Math.max(0.8, d);
-  return { x: W / 2 + 45 + x1 * k, y: H / 2 + 8 - y2 * k, d, k };
-}
-
-const byId = {};
-DATA.nodes.forEach(n => { byId[n.id] = n; n.proj = project([n.x, n.y, n.z]); });
+const levelOf = {};
+DATA.nodes.forEach(n => {
+  byId[n.id] = n;
+  levelOf[n.id] = DATA.levels.find(l => l.key === n.level) || { ring: 0, color: '#888', size: 10 };
+});
 
 const neighbors = {};
 EDGES.forEach(e => {
@@ -140,169 +130,184 @@ EDGES.forEach(e => {
   (neighbors[e.b] = neighbors[e.b] || new Set()).add(e.a);
 });
 
-/* ---------------- 交互选择 ---------------- */
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+/* ---------------- 坐标变换 ---------------- */
+const toScreenX = wx => (wx - cam.x) * cam.zoom + W / 2;
+const toScreenY = wy => (wy - cam.y) * cam.zoom + H / 2;
+const toWorldX = sx => (sx - W / 2) / cam.zoom + cam.x;
+const toWorldY = sy => (sy - H / 2) / cam.zoom + cam.y;
+
+function fit() {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of DATA.nodes) {
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+  }
+  const w = Math.max(1, maxX - minX), h = Math.max(1, maxY - minY);
+  const z = Math.min(W * 0.84 / w, H * 0.80 / h);
+  cam.zoom = Math.max(0.08, Math.min(1.4, z));
+  cam.x = (minX + maxX) / 2 - 40 / cam.zoom;
+  cam.y = (minY + maxY) / 2;
+}
+
+/* ---------------- 命中测试 ---------------- */
+function nodeRadiusScreen(n) {
+  const base = levelOf[n.id].size;
+  return Math.max(5, base * cam.zoom * (n === hover || n === sel ? 1.35 : 1));
+}
+
 function pick(mx, my) {
   let best = null, bestD = Infinity;
   for (const n of DATA.nodes) {
-    const p = n.proj;
-    if (!p || p.d < 0.8) continue;
-    const rr = Math.max(10, (n.r || 8) + 5);
-    const dx = p.x - mx, dy = p.y - my;
-    const d2 = dx * dx + dy * dy;
-    if (d2 <= rr * rr && d2 < bestD) { best = n; bestD = d2; }
+    const sx = toScreenX(n.x), sy = toScreenY(n.y);
+    const r = nodeRadiusScreen(n) + 5;
+    const d2 = (sx - mx) ** 2 + (sy - my) ** 2;
+    if (d2 <= r * r && d2 < bestD) { best = n; bestD = d2; }
   }
   return best;
 }
 
 /* ---------------- 绘制 ---------------- */
+function drawShape(n, sx, sy, r, active) {
+  const lv = levelOf[n.id];
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  ctx.fillStyle = active ? lv.color + '55' : '#0d1219';
+  ctx.strokeStyle = lv.color;
+  ctx.lineWidth = Math.max(1.2, n.level === '0' ? 2.6 : n.level === '0.5' ? 2.2 : 1.7);
+  ctx.beginPath();
+  if (n.level === '0.5') {
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 3;
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  } else {
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  if (n.level === '0' || n.level === '0.5') {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
+    ctx.fillStyle = lv.color;
+    ctx.fill();
+  } else if (n.level === '1' || n.level === '2') {
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(1.6, r * 0.32), 0, Math.PI * 2);
+    ctx.fillStyle = lv.color;
+    ctx.fill();
+  }
+
+  if (active) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // 背景
-  const bg = ctx.createRadialGradient(W * 0.5, H * 0.45, 40, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
-  bg.addColorStop(0, '#121826');
-  bg.addColorStop(1, '#080a10');
+  const bg = ctx.createRadialGradient(W * 0.5, H * 0.48, 60, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+  bg.addColorStop(0, '#0f141d');
+  bg.addColorStop(1, '#07090d');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // 层级环 + 层名
   for (const lv of DATA.levels) {
-    if (lv.radius < 0.05) continue;
+    if (!lv.ring) continue;
     ctx.beginPath();
-    for (let i = 0; i <= 72; i++) {
-      const a = i / 72 * Math.PI * 2;
-      const p = project([lv.radius * Math.cos(a), lv.y, lv.radius * Math.sin(a)]);
-      i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-    }
-    ctx.strokeStyle = 'rgba(120,140,170,.13)';
+    ctx.arc(toScreenX(0), toScreenY(0), lv.ring * cam.zoom, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(140,125,95,.10)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    const lp = project([lv.radius * 1.02, lv.y, 0]);
-    ctx.fillStyle = lv.color + '77';
-    ctx.font = '600 10px ui-monospace, monospace';
-    ctx.fillText(lv.short, lp.x + 6, lp.y - 4);
   }
-
-  // 层间主轴
-  const top = project([0, DATA.levels[0].y + 0.5, 0]);
-  const bot = project([0, DATA.levels[DATA.levels.length - 1].y - 0.5, 0]);
-  ctx.strokeStyle = 'rgba(120,140,170,.10)';
-  ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bot.x, bot.y); ctx.stroke();
-
-  // 节点投影
-  for (const n of DATA.nodes) n.proj = project([n.x, n.y, n.z]);
 
   const active = sel || hover;
   const near = active ? (neighbors[active.id] || new Set()) : null;
 
-  // 连线
   if (showEdges) {
-    const sorted = EDGES.slice().sort((e1, e2) => {
-      const a1 = byId[e1.a].proj, b1 = byId[e1.b].proj;
-      const a2 = byId[e2.a].proj, b2 = byId[e2.b].proj;
-      return (b2.d + a2.d) - (b1.d + a1.d);
-    });
-    for (const e of sorted) {
+    for (const e of EDGES) {
       const A = byId[e.a], B = byId[e.b];
       if (!A || !B) continue;
-      const a = A.proj, b = B.proj;
-      if (a.d < 0.8 || b.d < 0.8) continue;
+      const ax = toScreenX(A.x), ay = toScreenY(A.y);
+      const bx = toScreenX(B.x), by = toScreenY(B.y);
       const hot = active && (e.a === active.id || e.b === active.id);
       const dim = active && !hot;
-      const alpha = hot ? 0.85 : (dim ? 0.05 : 0.20);
+      ctx.globalAlpha = hot ? 0.95 : (dim ? 0.08 : 0.42);
       ctx.strokeStyle = e.color;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = hot ? 1.9 : 1;
-      // 轻微弯曲，避免直线糊在一起
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const bend = hot ? 0.04 : 0.10;
-      const cx = mx - dy / len * len * bend * 0.1;
-      const cy2 = my + dx / len * len * bend * 0.1;
+      ctx.lineWidth = hot ? 2.2 : Math.max(0.9, 1.5 * Math.min(cam.zoom, 1.4));
+      const mx = (ax + bx) / 2, my = (ay + by) / 2;
+      const dx = bx - ax, dy = by - ay;
+      const L = Math.hypot(dx, dy) || 1;
+      const bend = hot ? 0.05 : 0.14;
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.quadraticCurveTo(cx, cy2, b.x, b.y);
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(mx - dy / L * L * bend * 0.12, my + dx / L * L * bend * 0.12, bx, by);
       ctx.stroke();
-      if (hot) {
-        const t = 0.55;
-        const lx = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cx + t * t * b.x;
-        const ly = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cy2 + t * t * b.y;
-        ctx.globalAlpha = 0.95;
-        ctx.fillStyle = e.color;
-        ctx.font = '600 10.5px -apple-system,"Microsoft YaHei",sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(e.label, lx, ly - 4);
-        ctx.textAlign = 'left';
-      }
     }
     ctx.globalAlpha = 1;
   }
 
-  // 节点
-  const nodes = DATA.nodes.slice().sort((a, b) => b.proj.d - a.proj.d);
   const boxes = [];
-  const overlaps = (b) => boxes.some(o =>
+  const overlaps = b => boxes.some(o =>
     !(b.x + b.w < o.x || o.x + o.w < b.x || b.y + b.h < o.y || o.y + o.h < b.y));
+
+  const nodes = DATA.nodes.slice().sort((a, b) => levelOf[a.id].ring - levelOf[b.id].ring);
   for (const n of nodes) {
-    const p = n.proj;
-    if (p.d < 0.8) { n.r = 0; continue; }
-    const dim = active && n !== active && !(near && near.has(n.id));
+    const lv = levelOf[n.id];
+    const sx = toScreenX(n.x), sy = toScreenY(n.y);
     const isActive = n === active;
-    const base = 0.155 * p.k;
-    const r = Math.max(2.4, isActive ? base * 1.5 : base);
-    n.r = r;
+    const dim = active && !isActive && !(near && near.has(n.id));
+    const r = nodeRadiusScreen(n);
 
-    ctx.globalAlpha = dim ? 0.22 : 1;
+    ctx.globalAlpha = dim ? 0.35 : 1;
+    drawShape(n, sx, sy, r, isActive);
+    ctx.globalAlpha = 1;
 
-    // 光晕
-    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.8);
-    g.addColorStop(0, n.color + 'cc');
-    g.addColorStop(0.45, n.color + '33');
-    g.addColorStop(1, n.color + '00');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.8, 0, Math.PI * 2); ctx.fill();
-
-    // 核心
-    ctx.fillStyle = n.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.55)';
-    ctx.lineWidth = isActive ? 1.8 : 0.8;
-    ctx.stroke();
-
-    if (isActive) {
-      ctx.strokeStyle = n.color;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.1, 0, Math.PI * 2); ctx.stroke();
-    }
-
-    // 标签（径向向外摆放 + 避让：先放深度近的，重叠的不画）
-    const labelOn = showLabels && (p.k > 38 || isActive || (near && near.has(n.id)));
+    const need = { '0': 0, '0.5': 0.10, '1': 0.22, '2': 0.26, '3': 0.30 }[n.level] ?? 0.4;
+    const labelOn = showLabels && cam.zoom > 0.16 && (isActive || cam.zoom >= need || (near && near.has(n.id)));
     if (labelOn && !dim) {
-      ctx.font = (isActive ? '600 ' : '') + '11.5px -apple-system,"Microsoft YaHei",sans-serif';
+      ctx.font = (isActive ? '600 ' : '') + '12px -apple-system,"Microsoft YaHei",sans-serif';
       const tw = ctx.measureText(n.short).width;
-      const cen = project([0, n.y, 0]);
-      let dx = p.x - cen.x, dy = p.y - cen.y;
-      const dl = Math.hypot(dx, dy);
-      if (dl < 1) { dx = 1; dy = 0; } else { dx /= dl; dy /= dl; }
-      const off = r + 7;
-      const lx = p.x + dx * off, ly = p.y + dy * off + 4;
-      ctx.textAlign = dx < -0.25 ? 'right' : (dx > 0.25 ? 'left' : 'center');
-      const bx = ctx.textAlign === 'right' ? lx - tw : (ctx.textAlign === 'center' ? lx - tw / 2 : lx);
-      const box = { x: bx - 2, y: ly - 11, w: tw + 4, h: 15 };
+      const ly = sy + r + 15;
+      const box = { x: sx - tw / 2 - 2, y: ly - 11, w: tw + 4, h: 15 };
       if (isActive || !overlaps(box)) {
         boxes.push(box);
-        ctx.globalAlpha = isActive ? 1 : 0.88;
-        ctx.strokeStyle = 'rgba(6,8,13,.85)';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(6,8,13,.9)';
         ctx.lineWidth = 3;
-        ctx.strokeText(n.short, lx, ly);
-        ctx.fillStyle = isActive ? '#ffffff' : '#dfe5ee';
-        ctx.fillText(n.short, lx, ly);
+        ctx.strokeText(n.short, sx, ly);
+        ctx.fillStyle = isActive ? '#ffffff' : '#c8d1de';
+        ctx.fillText(n.short, sx, ly);
       }
-      ctx.textAlign = 'left';
     }
-    ctx.globalAlpha = 1;
   }
+  ctx.textAlign = 'left';
+}
+
+/* ---------------- 悬停提示 ---------------- */
+const tip = document.getElementById('tip');
+function showTip(n, mx, my) {
+  if (!n) { tip.classList.remove('on'); return; }
+  const lv = DATA.levels.find(l => l.key === n.level);
+  tip.innerHTML = '<b>' + n.title + '</b><span>' + lv.name + (n.cat ? ' · ' + n.cat : '') + '</span>';
+  tip.style.left = Math.min(mx + 16, W - 340) + 'px';
+  tip.style.top = Math.min(my + 16, H - 120) + 'px';
+  tip.classList.add('on');
 }
 
 /* ---------------- 面板 ---------------- */
@@ -311,30 +316,24 @@ const panelBody = document.getElementById('panelBody');
 
 function showPanel(n) {
   const lv = DATA.levels.find(l => l.key === n.level);
+  const nb = [...(neighbors[n.id] || [])].map(id => byId[id].short).join('、') || '—';
   panelBody.innerHTML =
     '<div class="badge">' + lv.name + ' · 第 ' + (n.num || 1) + ' 条</div>' +
     '<h2>' + n.title + '</h2>' +
-    '<dl><dt>范畴</dt><dd>' + (n.cat || '—') + '</dd>' +
-    '<dt>邻居</dt><dd>' + [...(neighbors[n.id] || [])].map(id => byId[id].short).join('、') || '—' + '</dd></dl>' +
+    '<dl><dt>范畴</dt><dd>' + (n.cat || '—') + '</dd><dt>邻居</dt><dd>' + nb + '</dd></dl>' +
     '<div class="acts">' +
       '<a href="' + n.url + '">读这一节 →</a>' +
-      (n.quadric ? '<a class="ghost" href="/3d.html#' + n.quadric + '">看三维曲面</a>' : '') +
-      '<a class="ghost" href="#" id="focusBtn">只亮邻居</a>' +
+      (n.quadric ? '<a class="ghost" href="/3d.html#' + n.quadric + '">看二次曲面</a>' : '') +
     '</div>';
   panel.classList.add('on');
-  const fb = document.getElementById('focusBtn');
-  if (fb) fb.onclick = ev => { ev.preventDefault(); sel = n; draw(); };
 }
-
-function hidePanel() { panel.classList.remove('on'); }
 
 function select(n) {
   sel = n;
-  if (n) showPanel(n); else hidePanel();
-  draw();
+  if (n) showPanel(n); else panel.classList.remove('on');
 }
 
-document.getElementById('close').onclick = () => select(null);
+document.getElementById('close').onclick = () => { select(null); draw(); };
 
 /* ---------------- 交互 ---------------- */
 let down = null, moved = 0;
@@ -346,43 +345,46 @@ cv.addEventListener('pointermove', e => {
   if (dragging && down) {
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
     moved += Math.abs(dx) + Math.abs(dy);
-    view.yaw += dx * 0.006;
-    view.pitch = Math.max(-1.25, Math.min(1.25, view.pitch + dy * 0.005));
+    cam.x -= dx / cam.zoom;
+    cam.y -= dy / cam.zoom;
     down = { x: e.clientX, y: e.clientY };
-    draw();
+    showTip(null);
   } else {
     const n = pick(e.clientX, e.clientY);
-    if (n !== hover) { hover = n; draw(); }
+    hover = n;
+    showTip(n, e.clientX, e.clientY);
     cv.style.cursor = n ? 'pointer' : 'grab';
   }
 });
 cv.addEventListener('pointerup', e => {
   dragging = false; down = null; cv.classList.remove('drag');
-  if (moved < 5) {
-    const n = pick(e.clientX, e.clientY);
-    select(n);
-  }
+  if (moved < 5) select(pick(e.clientX, e.clientY));
 });
+cv.addEventListener('pointerleave', () => { hover = null; showTip(null); });
 cv.addEventListener('dblclick', e => {
   const n = pick(e.clientX, e.clientY);
   if (n) location.href = n.url;
 });
 cv.addEventListener('wheel', e => {
   e.preventDefault();
-  view.zoom = Math.max(0.45, Math.min(3.2, view.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
-  draw();
+  const mx = e.clientX, my = e.clientY;
+  const wx = toWorldX(mx), wy = toWorldY(my);
+  cam.zoom = Math.max(0.06, Math.min(3.4, cam.zoom * (e.deltaY > 0 ? 0.88 : 1.14)));
+  cam.x = wx - (mx - W / 2) / cam.zoom;
+  cam.y = wy - (my - H / 2) / cam.zoom;
 }, { passive: false });
 
-document.getElementById('bReset').onclick = () => {
-  Object.assign(view, HOME); select(null); draw();
-};
+document.getElementById('bFit').onclick = () => fit();
 document.getElementById('bEdges').onclick = e => {
-  showEdges = !showEdges; e.target.classList.toggle('off', !showEdges); draw();
+  showEdges = !showEdges; e.target.classList.toggle('off', !showEdges);
 };
 document.getElementById('bLabels').onclick = e => {
-  showLabels = !showLabels; e.target.classList.toggle('off', !showLabels); draw();
+  showLabels = !showLabels; e.target.classList.toggle('off', !showLabels);
 };
-if (!showEdges) document.getElementById('bEdges').classList.add('off');
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') select(null);
+  if (e.key === 'f' || e.key === 'F') fit();
+});
 
 /* ---------------- 搜索 ---------------- */
 const q = document.getElementById('q'), results = document.getElementById('results');
@@ -396,19 +398,18 @@ q.addEventListener('input', () => {
       ev.preventDefault();
       const n = byId[a.dataset.id];
       select(n);
-      view.yaw = Math.atan2(n.x, n.z) || view.yaw;
-      draw();
+      cam.zoom = Math.max(cam.zoom, 0.5);
+      cam.x = n.x; cam.y = n.y;
     };
   });
 });
 
 /* ---------------- 启动 ---------------- */
+function loop() { draw(); requestAnimationFrame(loop); }
 resize();
-if (qs.has('sel') && byId[qs.get('sel')]) select(byId[qs.get('sel')]);
-requestAnimationFrame(function loop() {
-  draw();
-  requestAnimationFrame(loop);
-});
+fit();
+loop();
+window.addEventListener('resize', resize);
 </script>
 </body>
 </html>

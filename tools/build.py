@@ -149,7 +149,7 @@ def build_readme(plan, intro):
            "| 看实例 | 层级 2：分析、线性代数、概率统计等可以直接算的对象 |",
            "| 看算法 | 层级 3：优化、数值 PDE、机器学习、密码学等工程化模型 |",
            "| 想跑一遍 | `python tools/check.py`（逐个执行文中 Python 示例） |",
-           "| 看全貌 | 三维知识地图 `map.html`：54 个条目按五个层级摆成立体结构 |", ""]
+           "| 看全貌 | 天赋树式知识地图 `map.html`：中心起点 + 四级同心环，可缩放平移 |", ""]
 
     for lvl, _, _ in LEVELS:
         items = [s for s in plan if s["level"] == lvl]
