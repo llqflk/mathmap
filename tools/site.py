@@ -348,7 +348,7 @@ MAP_LEVELS = [
 ]
 
 EDGE_COLOR = {"meta": "#8b93a1", "tool": "#e5c07b", "struct": "#61afef",
-              "instantiate": "#98c379", "compute": "#c678dd"}
+              "instantiate": "#98c379", "compute": "#c678dd", "chapter": "#7fb069"}
 
 # (层A, 序号A, 层B, 序号B, 关系标签, 类型) —— 关系按数学内容手工标注
 MAP_EDGES = [
@@ -448,6 +448,32 @@ def category_of(section):
     return ""
 
 
+def la_chapters():
+    """线性代数 12 章的标题、链接与小节名（这些才是“具体章节”）。"""
+    base = os.path.join(ROOT, LA_DIR)
+    out = []
+    for name in sorted(os.listdir(base)):
+        if not name.endswith(".md") or name == "index.md":
+            continue
+        text = read(LA_DIR + "/" + name)
+        lines = text.split("\n")
+        m = re.match(r"^#\s+(.+)$", lines[0]) if lines else None
+        title = m.group(1).strip() if m else name[:-3]
+        sections = []
+        for ln in lines:
+            mm = re.match(r"^##\s+(.+)$", ln)
+            if mm:
+                sections.append(plain_math(mm.group(1)))
+        out.append(dict(
+            slug=name[:-3],
+            title=title,
+            short=re.sub(r"^第\s*\d+\s*章[：:]\s*", "", title)[:24],
+            url=LA_DIR + "/" + name[:-3] + ".html",
+            sections=sections,
+        ))
+    return out
+
+
 def build_map():
     sections, _ = parse(read_source())
     plan, errors = resolve(sections)
@@ -489,6 +515,31 @@ def build_map():
     pos = maplayout.radial_layout(nodes, edges, rings)
     for n in nodes:
         n["x"], n["y"] = pos[n["id"]]
+
+    # 线性代数 12 章：从「线性代数」节点拉出去的一条外圈分支链
+    chapters = la_chapters()
+    hub = next((n for n in nodes if n["id"] == "L2-05"), None)
+    if hub and chapters:
+        ang0 = math.atan2(hub["y"], hub["x"]) or -math.pi / 2
+        span = math.radians(112)
+        R = 1305
+        prev = hub["id"]
+        for i, ch in enumerate(chapters):
+            a = ang0 - span / 2 + span * (i / max(1, len(chapters) - 1))
+            child = dict(
+                id="CH-" + ch["slug"][:2], level="2", num=0, size=9, child=True,
+                title=ch["title"], short=ch["short"],
+                cat="线性代数讲义 · 本章 " + str(len(ch["sections"])) + " 节",
+                url=ch["url"], color="#7fb069",
+                x=round(R * math.cos(a), 1), y=round(R * math.sin(a), 1),
+                sections=ch["sections"],
+            )
+            nodes.append(child)
+            edges.append(dict(a=prev, b=child["id"],
+                              label="章" if i == 0 else "",
+                              kind="chapter", color=EDGE_COLOR["chapter"]))
+            prev = child["id"]
+        hub["children"] = [c["id"] for c in nodes if c.get("child")]
 
     tpl = open(os.path.join(ASSETS, "map.html"), encoding="utf-8").read()
     html = (tpl.replace("/*__DATA__*/", json.dumps(dict(levels=levels, nodes=nodes),

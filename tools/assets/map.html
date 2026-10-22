@@ -55,6 +55,11 @@
     color:#10151d; background:var(--accent); font-weight:600; }
   .panel .acts a.ghost { background:transparent; color:#c9d1de; border:1px solid var(--line); font-weight:400; }
   .panel .close { position:absolute; right:12px; top:10px; cursor:pointer; color:var(--muted); font-size:16px; }
+  .panel .secs { margin-top:12px; padding-top:10px; border-top:1px solid #232c3a; }
+  .panel .secs-title { font-size:11px; color:var(--muted); margin-bottom:5px; letter-spacing:.04em; }
+  .panel .secs a { display:block; font-size:12.5px; color:#9fc4e8; text-decoration:none; padding:2px 0; }
+  .panel .secs a:hover { color:#cfe4f8; text-decoration:underline; }
+  .panel .sec { font-size:12px; color:#a9b4c4; padding:1px 0; }
   .hint { position:fixed; left:22px; bottom:14px; color:var(--muted); font-size:11.5px; }
 
   @media (max-width:820px){ .hud{ width:calc(100% - 44px); } .panel{ left:18px; right:18px; width:auto; } }
@@ -65,7 +70,7 @@
 
 <div class="hud">
   <h1>数学天赋树</h1>
-  <p class="sub">54 个节点 · 5 个环 · 滚轮缩放 / 拖动平移 / 点击查看</p>
+  <p class="sub" id="sub">滚轮缩放 / 拖动平移 / 点击查看</p>
   <input id="q" type="search" placeholder="搜索节点，例如：同调、辛、MCMC">
   <div class="results" id="results"></div>
   <div class="legend">
@@ -196,7 +201,14 @@ function drawShape(n, sx, sy, r, active) {
   ctx.fill();
   ctx.stroke();
 
-  if (n.level === '0' || n.level === '0.5') {
+  if (n.child) {
+    // 章节子节点：空心环，和平级的条目区分开
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(1.4, r * 0.45), 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(180,205,175,.85)';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+  } else if (n.level === '0' || n.level === '0.5') {
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.52, 0, Math.PI * 2);
     ctx.fillStyle = lv.color;
@@ -278,7 +290,7 @@ function draw() {
     drawShape(n, sx, sy, r, isActive);
     ctx.globalAlpha = 1;
 
-    const need = { '0': 0, '0.5': 0.10, '1': 0.22, '2': 0.26, '3': 0.30 }[n.level] ?? 0.4;
+    const need = n.child ? 0.28 : ({ '0': 0, '0.5': 0.10, '1': 0.22, '2': 0.26, '3': 0.30 }[n.level] ?? 0.4);
     const labelOn = showLabels && cam.zoom > 0.16 && (isActive || cam.zoom >= need || (near && near.has(n.id)));
     if (labelOn && !dim) {
       ctx.font = (isActive ? '600 ' : '') + '12px -apple-system,"Microsoft YaHei",sans-serif';
@@ -316,15 +328,25 @@ const panelBody = document.getElementById('panelBody');
 
 function showPanel(n) {
   const lv = DATA.levels.find(l => l.key === n.level);
-  const nb = [...(neighbors[n.id] || [])].map(id => byId[id].short).join('、') || '—';
+  const nb = [...(neighbors[n.id] || [])]\n    .filter(id => !(n.children && byId[id].child))\n    .map(id => byId[id].short).join('、') || '—';
+  const badge = n.child ? ('线性代数讲义 · ' + n.title) : (lv.name + ' · 第 ' + (n.num || 1) + ' 条');
+  let extra = '';
+  if (n.children && n.children.length) {
+    extra = '<div class="secs"><div class="secs-title">包含 ' + n.children.length + ' 章</div>' +
+      n.children.map(id => '<a href="' + byId[id].url + '">' + byId[id].title + '</a>').join('') +
+      '</div>';
+  } else if (n.sections && n.sections.length) {
+    extra = '<div class="secs"><div class="secs-title">本章 ' + n.sections.length + ' 节</div>' +
+      n.sections.map(s => '<div class="sec">' + s + '</div>').join('') + '</div>';
+  }
   panelBody.innerHTML =
-    '<div class="badge">' + lv.name + ' · 第 ' + (n.num || 1) + ' 条</div>' +
+    '<div class="badge">' + badge + '</div>' +
     '<h2>' + n.title + '</h2>' +
     '<dl><dt>范畴</dt><dd>' + (n.cat || '—') + '</dd><dt>邻居</dt><dd>' + nb + '</dd></dl>' +
     '<div class="acts">' +
-      '<a href="' + n.url + '">读这一节 →</a>' +
+      '<a href="' + n.url + '">' + (n.child ? '读这一章 →' : '读这一节 →') + '</a>' +
       (n.quadric ? '<a class="ghost" href="/3d.html#' + n.quadric + '">看二次曲面</a>' : '') +
-    '</div>';
+    '</div>' + extra;
   panel.classList.add('on');
 }
 
@@ -405,9 +427,25 @@ q.addEventListener('input', () => {
 });
 
 /* ---------------- 启动 ---------------- */
+const chN = DATA.nodes.filter(n => n.child).length;
+document.getElementById('sub').textContent =
+  (DATA.nodes.length - chN) + ' 个条目' + (chN ? ' + ' + chN + ' 章讲义' : '') + ' · 滚轮缩放 / 拖动平移';
+// 支持 #sel=节点ID 直接定位（方便分享/截图）
+const qs = new URLSearchParams(location.hash.replace(/^#/, ''));
+if (qs.has('sel') && byId[qs.get('sel')]) {
+  const n0 = byId[qs.get('sel')];
+  select(n0);
+  cam.x = n0.x; cam.y = n0.y; cam.zoom = Math.max(cam.zoom, 0.75);
+}
+
 function loop() { draw(); requestAnimationFrame(loop); }
 resize();
 fit();
+if (qs.has('sel') && byId[qs.get('sel')]) {
+  const n1 = byId[qs.get('sel')];
+  select(n1);
+  cam.x = n1.x; cam.y = n1.y; cam.zoom = Math.max(cam.zoom, 0.75);
+}
 loop();
 window.addEventListener('resize', resize);
 </script>
