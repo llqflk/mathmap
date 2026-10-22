@@ -1,6 +1,6 @@
 # 线性代数
 
-> [← 返回《线性代数》目录](index.md) · [总目录](../../README.md)
+[← 返回总目录](../../README.md) · 12 章讲义，含章节表与 Python/Mathematica 双示例
 
 > **范畴**：$\mathbf{Vect}_k$ — 以域 $k$ 上有限维向量空间为对象，线性映射为态射。
 > 线性代数之所以"线性"，本质上是因为 $\mathbf{Vect}_k$ 是一个 **Abel 范畴**——态射集 $\mathrm{Hom}(V,W)$ 自带向量空间结构。

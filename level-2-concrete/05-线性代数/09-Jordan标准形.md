@@ -1,6 +1,6 @@
 # 第 9 章：Jordan 标准形
 
-> [← 返回《线性代数》目录](index.md) · [总目录](../../README.md)
+[← 返回《线性代数》目录](index.md) · [总目录](../../README.md)
 
 > 不可对角化矩阵的最终分类。$\mathbb C[x]$-模结构定理 → Jordan 形。幂零部分的存在是 $\mathbf{Vect}_k$ 与 $\mathbf{Hilb}_{\text{fd}}$ 的根本区别。
 
