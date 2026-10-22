@@ -165,29 +165,40 @@ FMor[Composition[g, f]][{a, b}] == FMor[g][FMor[f][{a, b}]]  (* True *)
 
 - **核心函子实例**：米田嵌入（见下一条）
 
-- **Python 示例（double→square 自然变换）**
+- **Python 示例（对角线自然变换 $\eta:\mathrm{Id}\Rightarrow(-)\times(-)$）**
 
 ```python
-# F = 2×,  G = (·)²  (看作两个从Set到Set的函子)
-import numpy as np
+# 两个函子 Set → Set：F = Id，G = (·)×(·)
+F_mor = lambda f: f                                # F(f) = f
+G_mor = lambda f: (lambda p: (f(p[0]), f(p[1])))   # G(f) = f×f
 
-F = lambda x: 2*x           # F(x) = 2x
-G = lambda x: x**2          # G(x) = x²
-# 自然变换 η: F ⇒ G,  η_x(x) = x/2 · x
-eta = lambda x: x/2 * x     # η_x: F(x) ↦ G(x) 即 2x ↦ x²
+eta = lambda x: (x, x)        # η_X: X → X×X，取对角线
+eta_bad = lambda x: (x, x+1)  # 看起来也像自然变换，其实不是
 
-for x in [1, 2, 3, 5]:
-    assert G(x) == eta(F(x)), f"η_{x}: 2*{x}={F(x)} ↦ {G(x)}={x}²"
-print("✓ 自然变换一致")
+# 自然性：对每个 f: X→Y 都有 G(f)∘η_X = η_Y∘F(f)
+for f in (lambda n: n + 1, lambda n: 2 * n, str):
+    for x in [0, 1, 2, 7]:
+        assert G_mor(f)(eta(x)) == eta(F_mor(f)(x))
+print("✓ 对角线 η 是自然的：G(f)∘η_X = η_Y∘F(f)")
+
+# 反例：换一个 f 就能看出 η' 的方块不交换
+f = lambda n: 2 * n
+print("✗ η' 非自然:", G_mor(f)(eta_bad(1)), "≠", eta_bad(F_mor(f)(1)))  # (2,4) ≠ (2,3)
 ```
 
 ```mathematica
 (* Mathematica：自然变换 *)
-(* F = (·)×2, G = (·)² *)
-F[x_] := 2 x; G[x_] := x^2;
-(* 自然变换 η: F ⇒ G *)
-η[x_] := x^2/2  (* η_x: F(x)=2x → G(x)=x² *)
-η[F[x]] == G[x]  (* True — 自然方块的每一格交换 *)
+(* 函子 Set→Set：F = Id，G = (·)×(·) *)
+FMor[f_][x_] := f[x];
+GMor[f_][{x_, y_}] := {f[x], f[y]};
+eta[x_] := {x, x};                  (* η_X: X → X×X，对角线 *)
+etaBad[x_] := {x, x + 1};           (* 候选：并不自然 *)
+
+f = Function[n, n + 1];
+Table[GMor[f][eta[x]] == eta[FMor[f][x]], {x, {0, 1, 2, 7}}]  (* 全为 True *)
+
+f2 = Function[n, 2 n];
+GMor[f2][etaBad[1]] == etaBad[FMor[f2][1]]                    (* False: {2,4} ≠ {2,3} *)
 ```
 
 ### 4. 米田嵌入
@@ -249,7 +260,7 @@ F = lambda X: ('List', X)    # 自由幺半群 = 字符列表
 U = lambda M: M[1]            # 遗忘 = 取底层集合
 
 # 伴随同构：从自由幺半群到M的同态 ↔ 从集合X到U(M)的函数
-def adjunction(f_map, X_elements):
+def adjunction(f, X_elements):
     """自由幺半群上的同态完全由生成元上的映射决定"""
     return {x: f(x) for x in X_elements}
 
@@ -386,21 +397,36 @@ Comm[{{0,1},{0,0}}, {{0,0},{1,0}}]  (* = {{1,0},{0,-1}} *)
 
 ### 3. 表示论
 
-- 范畴：$\mathbf{Rep}(G)$ 群表示范畴
+- 范畴：$\mathbf{Rep}(G)$ 群表示范畴——对象是 $G$-模（带群作用的向量空间），态射是 $G$-等变线性映射
 
-- **对象例子**：二维线性空间
+- **对象例子**：$\mathrm{SO}(2)$ 在 $\mathbb R^2$ 上的标准表示 $(\mathbb R^2,\rho)$
 
-- **态射例子**：群元素对应矩阵
+- **态射例子**：$g\mapsto\rho(g)$（群元映成矩阵）；等变映射 $T\rho(g)=\rho'(g)T$
 
-- **核心函子实例**：表示函子 $G\to\mathbf{Vect}$
+- **核心函子实例**：表示函子 $\rho:G\to\mathbf{Vect}$；特征标函子 $\chi_\rho(g)=\mathrm{tr}\,\rho(g)$
 
-- **Python 示例**：上面旋转矩阵例子就是 SO(2) 的二维表示
+- **Python 示例（SO(2) 二维表示 + 同态性检验）**
+
+```python
+import numpy as np
+def rep(theta):                       # ρ: SO(2) → GL(2, ℝ)
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[c, -s], [s, c]])
+
+a, b = 0.7, 1.3
+print("同态性 ρ(a+b)=ρ(a)ρ(b):", np.allclose(rep(a + b), rep(a) @ rep(b)))
+print("正交性 ρᵀρ=I:", np.allclose(rep(a).T @ rep(a), np.eye(2)))
+print("行列式恒为 1:", round(float(np.linalg.det(rep(a))), 12))
+```
 
 ```mathematica
 (* Mathematica：SO(2) 的二维表示 *)
 (* 群元 → 矩阵 *)
 rep[theta_] := RotationMatrix[theta]
 rep[Pi/3] . {1, 0}                      (* 旋转作用 *)
+
+(* 同态性：ρ(a)·ρ(b) = ρ(a+b) *)
+Chop[rep[0.7] . rep[1.3] - rep[2.0]]    (* 零矩阵 {{0,0},{0,0}} *)
 
 (* 不可约表示分解 *)
 rep[theta] // MatrixForm
@@ -597,7 +623,7 @@ NIntegrate[Sin[x^2], {x, 0, 2}]     (* 数值积分 *)
 Integrate[If[x ∈ Rationals, 1, 0], {x, 0, 1}]  (* Dirichlet 函数积分为0 *)
 ```
 
-### 9. 调和分析
+### 8. 调和分析
 
 - 范畴：拓扑群上函数空间范畴
 
@@ -625,7 +651,7 @@ a = {1, 2, 3}; b = {4, 5, 6};
 Fourier[ListConvolve[a, b]] == Fourier[a] * Fourier[b]  (* True *)
 ```
 
-### 10. PDE 进阶（索伯列夫空间）
+### 9. PDE 进阶（索伯列夫空间）
 
 - 范畴：索伯列夫空间范畴
 
@@ -656,7 +682,7 @@ laplacian1D // MatrixForm
 
 ## 拓扑与几何
 
-### 11. 点集拓扑
+### 10. 点集拓扑
 
 - 范畴：$\mathbf{Top}$ 拓扑空间范畴
 
@@ -681,7 +707,7 @@ Reduce[1 < f[x] < 4, x]            (* -2 < x < -1 || 1 < x < 2 *)
 (* 紧致化: 单位区间同胚于单点紧致化的R *)
 ```
 
-### 12. 代数拓扑
+### 11. 代数拓扑
 
 - 范畴：拓扑空间→代数的函子范畴
 
@@ -707,7 +733,7 @@ Simplify[PolyhedronData["Torus", "EulerCharacteristic"]]  (* 0 *)
 PolyhedronData["Torus", "Genus"]                          (* 1 *)
 ```
 
-### 13. 微分拓扑
+### 12. 微分拓扑
 
 - 范畴：$\mathbf{Diff}$ 微分流形范畴（对象为光滑流形，态射为光滑映射）
 
@@ -750,7 +776,7 @@ Solve[Grad[f[x, y], {x, y}] == {0, 0}]  (* 唯一临界点 (0,0) *)
 Det[D[f[x, y], {{x, y}, 2}]]             (* -4 *)
 ```
 
-### 14. 黎曼几何 / 微分几何
+### 13. 黎曼几何 / 微分几何
 
 - 范畴：$\mathbf{Riem}$ 黎曼流形范畴
 
@@ -778,7 +804,7 @@ eθ /. {θ -> Pi/2, φ -> 0}           (* {0, 0, -1} *)
 eφ /. {θ -> Pi/2, φ -> 0}           (* {0, 1, 0} *)
 ```
 
-### 15. 辛几何
+### 14. 辛几何
 
 - 范畴：$\mathbf{Sympl}$ 辛流形范畴
 
@@ -828,7 +854,7 @@ Simplify[D[hamiltonian /. sol, t]]  (* 0 — 能量守恒 *)
 
 ## 代数几何与数论
 
-### 16. 代数几何
+### 15. 代数几何
 
 - 范畴：$\mathbf{Sch}$ 概形范畴，或 $\mathbf{Var}_k$ 代数簇范畴
 
@@ -871,7 +897,7 @@ ec2 = EllipticCurve[{-1, 0}];
 ParametricPlot[Through[{Re, Im}[WeierstrassP[t, {-1, 0}]]], {t, 0, 2Pi}]
 ```
 
-### 17. 代数数论
+### 16. 代数数论
 
 - 范畴：$\mathbf{NumFld}$ 数域范畴
 
@@ -997,7 +1023,7 @@ sim = RandomFunction[proc, {0, 10, 0.01}];
 FirstPassageTimeDistribution[proc, 1.0]
 ```
 
-### 20. 动力系统
+### 18. 动力系统
 
 - 范畴：$\mathbf{Dyn}$ 状态自函子范畴
 
@@ -1026,7 +1052,7 @@ ListPlot[NestList[logistic, 0.2, 100]]
 
 ---
 
-### 21. 数理逻辑
+### 19. 数理逻辑
 
 - 范畴：$\mathbf{Th}$ 理论范畴——对象是一阶理论 $T$，态射是理论间的解释（interpretation）
 
@@ -1075,7 +1101,7 @@ ForAll[x, Exists[y, x < y]]  (* 在实数中为真 *)
 EncodeFormula[formula_String] := Hash[formula, "SHA256"]
 ```
 
-### 22. 集合论
+### 20. 集合论
 
 - 范畴：$\mathbf{V}$ von Neumann 宇宙——以累积层级 $V_\alpha$ 为对象
 
@@ -1126,7 +1152,7 @@ OrdinalQ[ω]   (* 检查是否为序数 *)
 (* 加法力迫：从 ZFC 一致性证明 ZFC+¬CH 一致性 *)
 ```
 
-### 23. 模形式
+### 21. 模形式
 
 - 范畴：$M_k(\Gamma)$ 权 $k$ 模形式空间（$\Gamma=\mathrm{SL}(2,\mathbb Z)$）
 
@@ -1171,104 +1197,6 @@ Series[E4, {q, 0, 10}]
 RamanujanTau[1]  (* 1 *)
 RamanujanTau[2]  (* -24 *)
 RamanujanTau[3]  (* 252 *)
-
-(* j-不变量 *)
-KleinInvariantJ[I]  (* 1728 *)
-```
-
-### 22. 集合论
-
-- 范畴：$\mathbf{V}$ von Neumann 宇宙——以累积层级 $V_\alpha$ 为对象
-
-- **对象例子**：序数 $\omega$（第一个无穷序数）；基数 $\aleph_1$（第一个不可数基数）
-
-- **态射例子**：力迫扩张 $V\to V[G]$（加入通型滤子 $G$ 获得新模型）
-
-- **核心函子实例**：幂集函子 $\mathcal P:V_\alpha\to V_{\alpha+1}$；连续统函子（基数→可能值域）
-
-- **Python 示例（序数算术与基数运算）**
-
-```python
-# 模拟序数与基数运算
-class Ordinal:
-    """有限序数的 von Neumann 表示"""
-    def __init__(self, n):
-        self.n = n  # 0=∅, 1={∅}, 2={∅,{∅}}, ...
-
-    def __repr__(self):
-        return f"Ordinal({self.n})"
-
-    def successor(self):
-        return Ordinal(self.n + 1)
-
-# 基数算术
-def cardinal_add(kappa, _lambda):
-    """|κ+λ| = max(κ,λ) 对无穷基数"""
-    return max(kappa, _lambda)
-
-def cardinal_mul(kappa, _lambda):
-    """|κ×λ| = max(κ,λ) 对无穷基数"""
-    return max(kappa, _lambda)
-
-omega = Ordinal(float('inf'))  # 第一个无穷序数 ω
-print(f"ω的后继 = {omega.successor()}")  # ω+1
-print(f"ℵ₀ + ℵ₁ = ℵ{cardinal_add(0, 1)}")
-```
-
-```mathematica
-(* Mathematica：集合论 *)
-(* 序数 *)
-OrdinalQ[ω]   (* 检查是否为序数 *)
-
-(* 连续统假设独立于 ZFC *)
-(* 不能从 ZFC 公理证明或反驳 *)
-
-(* 力迫法的元数学性质 *)
-(* 加法力迫：从 ZFC 一致性证明 ZFC+¬CH 一致性 *)
-```
-
-### 23. 模形式
-
-- 范畴：$M_k(\Gamma)$ 权 $k$ 模形式空间（$\Gamma=\mathrm{SL}(2,\mathbb Z)$）
-
-- **对象例子**：Eisenstein 级数 $E_4(\tau)=1+240\sum_{n=1}^\infty\sigma_3(n)q^n$
-
-- **态射例子**：Hecke 算子 $T_n:M_k\to M_k$（模形式空间上的线性算子）
-
-- **核心函子实例**：Mellin 变换函子（模形式→L-函数）；Galois 表示函子（模形式→2 维 Galois 表示）
-
-- **Python 示例（Eisenstein 级数 q-展开）**
-
-```python
-def sigma(k, n):
-    """除数函数 σ_k(n) = Σ_{d|n} d^k"""
-    return sum(d**k for d in range(1, n+1) if n % d == 0)
-
-def eisenstein_series(k, q_terms=10):
-    """E_k = 1 + (2k/B_k) Σ σ_{k-1}(n) q^n"""
-    from fractions import Fraction
-    B = {4: Fraction(-1, 30), 6: Fraction(1, 42)}
-    coeff = Fraction(2*k, B[k]) if k in B else 1
-    series = [1]
-    for n in range(1, q_terms+1):
-        series.append(int(coeff) * sigma(k-1, n))
-    return series
-
-E4 = eisenstein_series(4, 10)
-print(f"E_4 = 1 + {E4[1]}q + {E4[2]}q^2 + {E4[3]}q^3 + ...")
-# E_4 = 1 + 240q + 2160q^2 + 6720q^3 + ...
-```
-
-```mathematica
-(* Mathematica：模形式 *)
-(* Eisenstein 级数 *)
-E4 = EisensteinE[4, q]
-Series[E4, {q, 0, 10}]
-(* 1 + 240q + 2160q^2 + 6720q^3 + ... *)
-
-(* Hecke 算子特征值 *)
-RamanujanTau[1]  (* 1 *)
-RamanujanTau[2]  (* -24 *)
 
 (* j-不变量 *)
 KleinInvariantJ[I]  (* 1728 *)
@@ -1379,7 +1307,7 @@ df /. z -> 1 + 2 I      (* 输出：2 + 4 I *)
 ComplexPlot[f[z], {z, -2-2I, 2+2I}]
 ```
 
-### 4. 常微分方程 ODE
+### 3. 常微分方程 ODE
 
 - 范畴：$\mathbf{Dyn}$ 动力系统范畴
 
@@ -1414,7 +1342,7 @@ nsol = NDSolve[{x'[t] == -x[t], x[0] == 1}, x, {t, 0, 2}]
 x[2] /. nsol           (* ≈ 0.135 *)
 ```
 
-### 5. 偏微分方程入门（PDE）
+### 4. 偏微分方程入门（PDE）
 
 - 范畴：$\mathbf{DiffOp}$ 微分算子范畴
 
@@ -1458,7 +1386,7 @@ Plot3D[u[t, x] /. sol, {t, 0, 0.2}, {x, 0, 1}]
 
 ## 代数类
 
-### 6. 线性代数
+### 5. 线性代数
 
 - 范畴：$\mathbf{Vect}_\mathbb R$ 有限维实线性空间
 
@@ -1488,7 +1416,7 @@ Eigenvalues[A]        (* 谱分析 *)
 Det[A]                (* 行列式 = -2 *)
 ```
 
-### 7. 多项式代数 / 矩阵论
+### 6. 多项式代数 / 矩阵论
 
 - 范畴：$\mathbf{Poly}$ 多项式环范畴
 
@@ -1518,7 +1446,7 @@ Composition[p, q][3]      (* 输出：37 *)
 p[q[x]]                   (* 1 + 4x^2 *)
 ```
 
-### 8. 初等数论
+### 7. 初等数论
 
 - 范畴：$\mathbf{Arith}$ 算术范畴（$\mathbb Z$ 及其同余结构）
 
@@ -1568,7 +1496,7 @@ PowerMod[c, d, n]                 (* 解密还原 → 42 *)
 
 ## 几何类
 
-### 9. 解析几何 / 微分几何入门
+### 8. 解析几何 / 微分几何入门
 
 - 范畴：$\mathbf{Euc}$ 欧氏空间范畴
 
@@ -1749,7 +1677,7 @@ Intersection[{1, 2, 3}, {2, 3, 4}]  (* {2, 3} *)
 Union[{1, 2}, {2, 3}]               (* {1, 2, 3} *)
 ```
 
-### 14. 博弈论
+### 11. 博弈论
 
 - 范畴：$\mathbf{Game}$ 博弈范畴——对象为博弈（策略式或展开式），态射为博弈间的态射
 
@@ -1813,15 +1741,31 @@ NashEquilibrium[{{1, -1}, {-1, 1}}, {{-1, 1}, {1, -1}}]
 
 ### 1. 数值线性代数
 
-- 范畴：离散化 $\mathbf{Vect}$
+- 范畴：$\mathbf{Vect}_{\mathbb R}^{\mathrm{fd}}$ 的浮点实现——把 Abel 范畴搬到 IEEE 754 数组上
 
-- 对象：numpy 数组
+- **对象例子**：$\mathbb R^{3\times3}$ 中的可逆矩阵 $A$，右端项 $b\in\mathbb R^3$
 
-- 态射：矩阵乘法
+- **态射例子**：$v\mapsto Av$（矩阵乘法）；求解 $Ax=b$（LU 分解 + 部分主元）
 
-- 函子：向量化函子
+- **核心函子实例**：向量化函子（线性映射↔数组）；奇异值分解函子 $A\mapsto(\sigma_1,\dots,\sigma_n)$
 
-- 示例：`A @ v`
+- **Python 示例（LU 求解 + 数值秩 + 条件数）**
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+A = rng.normal(size=(3, 3)); b = rng.normal(size=3)
+
+x = np.linalg.solve(A, b)                  # LU 分解 + 部分主元
+print("解 x =", np.round(x, 4), "残差 =", f"{np.linalg.norm(A @ x - b):.1e}")
+
+s = np.linalg.svd(A, compute_uv=False)     # 奇异值：数值秩的判据
+print("奇异值 =", np.round(s, 3), "数值秩 =", int((s > 1e-12).sum()))
+
+# 病态矩阵：条件数 κ 放大误差（Hilbert 矩阵是经典坏例子）
+H = np.array([[1.0 / (i + j + 1) for j in range(5)] for i in range(5)])
+print("Hilbert(5) 条件数 =", f"{np.linalg.cond(H):.1e}")
+```
 
 ```mathematica
 (* Mathematica：数值线性代数 *)
@@ -1833,15 +1777,36 @@ SingularValueDecomposition[A]         (* SVD 分解 *)
 
 ### 2. 有限元
 
-- 范畴：连续→离散网格函子
+- 范畴：$\mathbf{FE}(\Omega)$ 有限元空间范畴——对象是网格上的有限元空间，态射是插值与限制映射
 
-- 对象：三角形网格
+- **对象例子**：$\Omega=(0,1)$ 上 4 个线性单元、5 个节点组成的网格
 
-- 态射：刚度矩阵
+- **态射例子**：刚度矩阵 $K_{ij}=\int_\Omega \varphi_i'\varphi_j'$——把弱形式 $-\Delta$ 变成线性方程组
 
-- 函子：离散化函子
+- **核心函子实例**：离散化函子 $D:H^1(\Omega)\to\mathbb R^N$（连续 Sobolev 空间→自由度）；组装函子（单元矩阵→全局矩阵）
 
-- 示例：FEniCS 刚度矩阵组装
+- **Python 示例（一维 Poisson 方程装配 + 与精确解对比）**
+
+```python
+import numpy as np
+# -u'' = 1 on (0,1), u(0)=u(1)=0；4 个线性单元
+n, h = 4, 0.25
+K = np.zeros((n + 1, n + 1)); F = np.zeros(n + 1)
+Ke = np.array([[1, -1], [-1, 1]]) / h       # 单元刚度矩阵
+Fe = np.array([1, 1]) * h / 2               # 单元载荷（右端项 1）
+for e in range(n):
+    idx = [e, e + 1]
+    K[np.ix_(idx, idx)] += Ke
+    F[idx] += Fe
+
+u = np.zeros(n + 1)                         # Dirichlet 边界置 0
+u[1:-1] = np.linalg.solve(K[1:-1, 1:-1], F[1:-1])
+
+x = np.linspace(0, 1, n + 1); exact = x * (1 - x) / 2
+print("节点解 =", np.round(u, 4))
+print("精确解 =", np.round(exact, 4))
+print("最大误差 =", f"{np.abs(u - exact).max():.1e}")   # 一维线性元在节点上精确
+```
 
 ```mathematica
 (* Mathematica：有限元 *)
@@ -1891,15 +1856,31 @@ Minimize[{x^2, x >= 1}, x]             (* 精确解 *)
 
 ### 4. 凸优化
 
-- 范畴：凸集范畴
+- 范畴：$\mathbf{Conv}$ 凸集范畴——对象是凸集，态射是仿射映射（保持凸组合）
 
-- 对象：凸函数
+- **对象例子**：半空间 $C=\{(x,y)\in\mathbb R^2\mid x+y\le 2\}$
 
-- 态射：梯度下降
+- **态射例子**：欧氏投影 $P_C$（把任意点压回凸集）；投影梯度步 $x\mapsto P_C(x-\eta\nabla f)$
 
-- 函子：共轭对偶函子
+- **核心函子实例**：共轭对偶函子 $f\mapsto f^*$（Legendre 变换）；支撑函数函子 $C\mapsto h_C$
 
-- 示例：CVXPY 最小二乘
+- **Python 示例（投影梯度法 + KKT 乘子校验）**
+
+```python
+import numpy as np
+f = lambda v: (v[0] - 3) ** 2 + (v[1] - 1) ** 2               # 目标函数
+grad = lambda v: np.array([2 * (v[0] - 3), 2 * (v[1] - 1)])
+proj = lambda v: v - max(0.0, v.sum() - 2) / 2 * np.ones(2)   # 投影到 x+y<=2
+
+v, lr = np.zeros(2), 0.1
+for _ in range(300):                                          # 投影梯度法
+    v = proj(v - lr * grad(v))
+print("最优解 =", np.round(v, 4), "最优值 =", round(f(v), 4))
+
+lam = -grad(v).sum() / 2                                      # KKT 乘子
+print("KKT 乘子 λ =", round(lam, 3), "≥ 0:", lam >= 0)
+print("无约束极小是 (3,1)，但违反约束——约束确实起作用")
+```
 
 ```mathematica
 (* Mathematica：凸优化 *)
@@ -1914,30 +1895,6 @@ LinearOptimization[2 x + y, {x + y >= 1, x >= 0, y >= 0}, {x, y}]
 ```
 
 ### 5. 贝叶斯统计与MCMC
-
-- 范畴：统计模型范畴
-
-- 对象：正态先验
-
-- 态射：后验更新
-
-- 函子：条件概率 Monad bind
-
-- 示例：PyMC3 采样
-
-```mathematica
-(* Mathematica：贝叶斯推断 *)
-(* 正态-逆Gamma先验 → 后验更新 *)
-data = RandomVariate[NormalDistribution[5, 2], 100];
-(* 共轭先验 *)
-prior = NormalDistribution[μ0, σ0/Sqrt[n0]];
-posterior = NormalDistribution[
-    (μ0*n0 + Total[data])/(n0 + Length[data]),
-    2/Sqrt[n0 + Length[data]]];
-posterior
-```
-
-
 
 - 范畴：$\mathbf{MC}$ 随机模拟范畴
 
@@ -1985,7 +1942,7 @@ Do[
 {Mean[samples], StandardDeviation[samples]}  (* ≈{0, 1} *)
 ```
 
-### 7. 信息论
+### 6. 信息论
 
 - 范畴：$\mathbf{Prob}$ 概率分布范畴（对象为分布，态射为信道）
 
@@ -2026,7 +1983,7 @@ kl[p_, q_] := Total[p * Log2[p/(q + $MachineEpsilon) + $MachineEpsilon]]
 kl[{0.5, 0.5}, {0.9, 0.1}]                  (* 0.531 bit *)
 ```
 
-### 8. 密码学
+### 7. 密码学
 
 - 范畴：$\mathbf{Crypt}$ 密码系统范畴
 
@@ -2074,7 +2031,7 @@ PowerMod[c, d, n]                      (* 解密 → 42 *)
 MultiplicativeOrder[2, 101]            (* ord_101(2) *)
 ```
 
-### 9. 信号处理
+### 8. 信号处理
 
 - 范畴：$\mathbf{Sig}$ 信号空间范畴（$\ell^2$ 或 $L^2$）
 
@@ -2113,17 +2070,33 @@ y = ListConvolve[fir, x];
 Periodogram[{x, y}]
 ```
 
-### 10. 控制论
+### 9. 控制论
 
-- 范畴：控制系统范畴
+- 范畴：$\mathbf{Sys}$ 线性系统范畴——对象是 LTI 系统 $(A,B,C,D)$，态射是系统互连（串联、反馈）
 
-- 对象：系统状态
+- **对象例子**：双积分器 $\dot x=Ax+Bu$，$A=\begin{pmatrix}0&1\\0&0\end{pmatrix}$，$B=\begin{pmatrix}0\\1\end{pmatrix}$
 
-- 态射：控制律
+- **态射例子**：状态反馈 $u=-Kx$（把 $(A,B)$ 变成闭环 $A-BK$）
 
-- 函子：State Monad
+- **核心函子实例**：能控性函子（系统→能控子空间 $\mathrm{im}[B\ \ AB]$）；极点配置函子（期望谱→增益 $K$）
 
-- 示例：PID 迭代更新状态
+- **Python 示例（Ackermann 极点配置）**
+
+```python
+import numpy as np
+A = np.array([[0., 1.], [0., 0.]])          # 双积分器 x'' = u
+B = np.array([[0.], [1.]])
+poles = [-1.0, -2.0]                        # 期望闭环极点
+
+C = np.hstack([B, A @ B])                   # 能控性矩阵
+phi = np.eye(2)
+for lam in poles:                           # φ(A) = Π(A - λI)
+    phi = phi @ (A - lam * np.eye(2))
+K = np.array([0., 1.]) @ np.linalg.inv(C) @ phi   # Ackermann 公式
+
+print("反馈增益 K =", np.round(K, 4))
+print("闭环谱 =", np.round(np.sort(np.linalg.eigvals(A - B @ K.reshape(1, -1))), 4))
+```
 
 ```mathematica
 (* Mathematica：控制论 *)
@@ -2139,7 +2112,7 @@ StateSpaceModel[{{{-1}}, {{1}}, {{1}}, {{0}}}]
 LQRegulatorGains[%, {1, 1}]
 ```
 
-### 11. 计算几何
+### 10. 计算几何
 
 - 范畴：$\mathbf{CompGeom}$ 计算几何范畴
 
@@ -2179,7 +2152,7 @@ ch = ConvexHullMesh[points];
 MeshCellCount[ch]                       (* 凸包面数 *)
 ```
 
-### 12. 计算流体力学（CFD）
+### 11. 计算流体力学（CFD）
 
 - 范畴：$\mathbf{CFD}$ 连续介质离散化范畴
 
@@ -2226,17 +2199,33 @@ sol = NDSolve[{D[u[t, x], t] + D[u[t, x], x] == 0,
 Plot3D[u[t, x] /. sol, {t, 0, 2}, {x, 0, 4}]
 ```
 
-### 13. 图论
+### 12. 图论
 
-- 范畴：$\mathbf{Graph}$ 图范畴
+- 范畴：$\mathbf{Graph}$ 图范畴——对象是图，态射是图同态（把边映成边）
 
-- 对象：节点集合
+- **对象例子**：四边形 $C_4$，顶点 $\{0,1,2,3\}$，边 $\{01,12,23,30\}$
 
-- 态射：边映射
+- **态射例子**：$C_4\to K_2$ 的二部染色（图同态）；$C_4$ 的自同构（旋转、翻转）
 
-- 函子：邻接矩阵函子
+- **核心函子实例**：邻接矩阵函子 $\mathrm{Adj}:\mathbf{Graph}\to\mathbf{Mat}$；圈空间函子（图→圈空间）
 
-- 示例：NetworkX 图同态
+- **Python 示例（邻接矩阵 + 图同态判定）**
+
+```python
+g = {0: {1, 3}, 1: {0, 2}, 2: {1, 3}, 3: {0, 2}}   # 四边形 C4
+k2 = {0: {1}, 1: {0}}                              # 两点图 K2
+
+def is_hom(g, h, f):                               # 图同态：边必须映成边
+    return all(f[v] in h[f[u]] for u in g for v in g[u])
+
+def adj(g, order):                                 # 邻接矩阵函子
+    return [[1 if v in g[u] else 0 for v in order] for u in order]
+
+print("C4 邻接矩阵 =", adj(g, sorted(g)))
+print("恒等映射是自同构:", is_hom(g, g, {v: v for v in g}))
+print("C4 → K2 的二部染色是同态:", is_hom(g, k2, {0: 0, 1: 1, 2: 0, 3: 1}))
+print("把 C4 折成单点:", is_hom(g, k2, {0: 0, 1: 0, 2: 0, 3: 0}))   # False
+```
 
 ```mathematica
 (* Mathematica：图论 *)
@@ -2246,17 +2235,57 @@ GraphAutomorphismGroup[g]            (* 图的自同构群 *)
 FindHamiltonianCycle[g]              (* 哈密顿回路 *)
 ```
 
-### 14. 深度学习
+### 13. 深度学习
 
-- 范畴：可微函数范畴
+- 范畴：$\mathbf{Smooth}$ 可微映射范畴——对象是 $\mathbb R^n$（张量空间），态射是可微映射
 
-- 对象：张量
+- **对象例子**：XOR 的四个输入点 $\{(0,0),(0,1),(1,0),(1,1)\}\subset\mathbb R^2$
 
-- 态射：网络层
+- **态射例子**：两层 MLP $f_\theta:\mathbb R^2\to(0,1)$（仿射 + sigmoid 复合）；损失 $L=\frac1N\sum(f_\theta(x_i)-y_i)^2$
 
-- 函子：自动微分函子
+- **核心函子实例**：切函子 $T$（可微映射↦其导数）；反向传播 = $T$ 在计算图上的反向复合
 
-- 示例：PyTorch 反向传播
+- **Python 示例（手写反向传播 + 梯度校验 + 训练 XOR）**
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+X = np.array([[0., 0.], [0., 1.], [1., 0.], [1., 1.]])
+y = np.array([[0., 1., 1., 0.]]).T          # XOR
+sig = lambda z: 1 / (1 + np.exp(-z))
+
+W1 = rng.normal(0, 1, (2, 4)); b1 = np.zeros((1, 4))
+W2 = rng.normal(0, 1, (4, 1)); b2 = np.zeros((1, 1))
+params = [W1, b1, W2, b2]
+
+def forward():
+    h = sig(X @ W1 + b1)                    # 隐层把 4 个点摊开
+    return h, sig(h @ W2 + b2)
+
+def loss():
+    _, o = forward()
+    return float(np.mean((o - y) ** 2))
+
+def grads():                                # 反向传播：链式法则逐层回传
+    h, o = forward()
+    d2 = 2 * (o - y) / y.size * o * (1 - o)
+    d1 = (d2 @ W2.T) * h * (1 - h)
+    return [X.T @ d1, d1.sum(0, keepdims=True), h.T @ d2, d2.sum(0, keepdims=True)]
+
+# 梯度校验：解析梯度 vs 中心差分
+g = grads(); eps = 1e-6
+W1[0, 0] += eps; lp = loss()
+W1[0, 0] -= 2 * eps; lm = loss()
+W1[0, 0] += eps
+print("梯度校验: 解析 =", f"{g[0][0, 0]:+.6f}", " 差分 =", f"{(lp - lm) / (2 * eps):+.6f}")
+
+for _ in range(20000):                      # 全批梯度下降
+    for p, gi in zip(params, grads()):
+        p -= 0.5 * gi
+_, o = forward()
+print("训练后 loss =", f"{loss():.5f}")
+print("预测 =", np.round(o.ravel(), 3), "目标 =", y.ravel().astype(int))
+```
 
 ```mathematica
 (* Mathematica：深度学习 — 自动微分 *)
@@ -2271,13 +2300,7 @@ net = NetChain[{LinearLayer[10], ElementwiseLayer["ReLU"], LinearLayer[1]}]
 (* 自动微分由框架处理 *)
 ```
 
----
-
-如果你愿意，我可以把上面**全部内容整理成一份干净的 Markdown 文档**，去掉代码块冗余，做成可直接复制到 Notion/Word 的完整版。
-
-> （注：部分内容可能由 AI 生成）
-
-### 15. 金融数学
+### 14. 金融数学
 
 - 范畴：$\mathbf{Mkt}$ 市场模型范畴——对象为概率空间上的资产与衍生品
 
@@ -2328,7 +2351,7 @@ ItoProcess[\[DifferentialD]S[t] == \[Mu] S[t] \[DifferentialD]t +
    \[Sigma] S[t] \[DifferentialD]W[t], S[t], {S, S0}, t, W \[Distributed] WienerProcess[]]
 ```
 
-### 16. 量子计算数学
+### 15. 量子计算数学
 
 - 范畴：$\mathbf{CPTP}$ 量子信道范畴——对象为有限维 Hilbert 空间 $\mathcal H$，态射为完全正保迹映射
 
