@@ -16,7 +16,6 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import maplayout
 from build import LEVELS, LEVEL_TITLE, EXPANDED, ROOT, parse, read_source, resolve  # noqa: E402
 
 OUT = os.path.join(ROOT, "_site")
@@ -475,6 +474,11 @@ def la_chapters():
 
 
 def build_map():
+    """家族扇区（角度）+ 抽象度（半径）+ 桥；数据一次性烘焙进 map.html。"""
+    from families import (BRIDGES, FAMILY, FAMILY_NAME, LEVEL_LABEL, LEVEL_RADIUS,
+                          ORDER, family_colors)
+    import similarity as simlib
+
     sections, _ = parse(read_source())
     plan, errors = resolve(sections)
     if errors:
@@ -483,82 +487,134 @@ def build_map():
     def nid(level, num):
         return "L%s-%02d" % (level.replace(".", ""), int(num or 1))
 
-    levels = [dict(key=k, name=name, short=short, ring=ring, size=size, color=color)
-              for k, name, short, ring, size, color in MAP_LEVELS]
-    rings = {k: ring for k, _n, _s, ring, _z, _c in MAP_LEVELS}
+    sizes = {"0.5": 21, "1": 18, "2": 15, "3": 12}
+    topics = []
+    for s in plan:
+        key = "%s-%s" % (s["level"], s["num"] or 1)
+        num = s["num"] or 1
+        topics.append(dict(
+            id=nid(s["level"], num), key=key, level=s["level"], num=num,
+            size=sizes.get(s["level"], 14),
+            title=plain_math(s["title"]), short=short_title(s["title"]),
+            cat=category_of(s), url=s["path"] + "/index.html",
+            family=FAMILY.get(key, "J"),
+        ))
 
-    nodes = []
-    for lvl, _name, _short, _ring, size, color in MAP_LEVELS:
-        items = sorted([s for s in plan if s["level"] == lvl], key=lambda s: (s["num"] or 0))
-        for s in items:
-            num = s["num"] or 1
-            node = dict(
-                id=nid(lvl, num), level=lvl, num=num, size=size,
-                title=plain_math(s["title"]), short=short_title(s["title"]),
-                cat=category_of(s), url=s["path"] + "/index.html",
-                color=color,
-            )
-            if node["id"] in MAP_QUADRIC:
-                node["quadric"] = MAP_QUADRIC[node["id"]]
-            nodes.append(node)
+    # 扇区宽度 ∝ 家族成员数
+    counts = {}
+    for x in topics:
+        if x["family"] != "M":
+            counts[x["family"]] = counts.get(x["family"], 0) + 1
+    order = [f for f in ORDER if f in counts]
+    # 扇区宽度 ∝ “角度需求” = max(同层节点数 / 该层半径)，而不是简单按成员数
+    demand = {}
+    for fam in order:
+        groups = {}
+        for x in topics:
+            if x["family"] == fam:
+                groups.setdefault(x["level"], []).append(x)
+        demand[fam] = max(len(g) / LEVEL_RADIUS.get(lvl, 1000) for lvl, g in groups.items())
+    total = sum(demand.values())
+    gap = math.radians(4.2)
+    avail = 2 * math.pi - gap * len(order)
+    sectors, cursor = {}, -math.pi / 2
+    for fam in order:
+        w = avail * demand[fam] / total
+        sectors[fam] = (cursor, cursor + w)
+        cursor += w + gap
 
-    ids = {n["id"] for n in nodes}
+    colors = family_colors(order)
+    colors["M"] = "#f0a04b"
+
+    # 位置：扇区内按层分圈，同层按序号均分角度
+    for fam, (a0, a1) in sectors.items():
+        members = [x for x in topics if x["family"] == fam]
+        by_level = {}
+        for m in members:
+            by_level.setdefault(m["level"], []).append(m)
+        for lvl, group in by_level.items():
+            group.sort(key=lambda x: x["num"])
+            r = LEVEL_RADIUS.get(lvl, 1000)
+            pad = (a1 - a0) * 0.10
+            span = (a1 - a0) - 2 * pad
+            for i, m in enumerate(group):
+                ang = a0 + pad + span * (i + 0.5) / len(group)
+                m["x"] = round(r * math.cos(ang), 1)
+                m["y"] = round(r * math.sin(ang), 1)
+                m["color"] = colors[fam]
+
+    center = next(x for x in topics if x["family"] == "M")
+    center.update(x=0.0, y=0.0, color=colors["M"], short="起点", size=32)
+
+    lvl_rank = {"0.5": 0, "1": 1, "2": 2, "3": 3}
     edges = []
-    missing = []
-    for la, na, lb, nb, label, kind in MAP_EDGES:
-        a, b = nid(la, na), nid(lb, nb)
-        if a in ids and b in ids:
-            edges.append(dict(a=a, b=b, label=label, kind=kind, color=EDGE_COLOR[kind]))
-        else:
-            missing.append((a, b, label))
 
-    pos = maplayout.radial_layout(nodes, edges, rings)
-    for n in nodes:
-        n["x"], n["y"] = pos[n["id"]]
+    def family_members(fam):
+        return sorted([x for x in topics if x["family"] == fam],
+                      key=lambda x: (lvl_rank[x["level"]], x["num"]))
 
-    # 线性代数讲义：45 个小节沿外圈排成一段弧，章与章之间留空隙
-    chapters = la_chapters()
-    hub = next((n for n in nodes if n["id"] == "L2-05"), None)
-    if hub and chapters:
-        flat = []                       # [(章号, 章标题, 小节序号, 小节标题)]
-        for ci, ch in enumerate(chapters, 1):
-            for si, sec in enumerate(ch["sections"], 1):
-                flat.append((ci, ch["title"], si, sec, ch["url"]))
-        ang0 = math.atan2(hub["y"], hub["x"]) or -math.pi / 2
-        span = math.radians(188)
-        gap = math.radians(2.2)         # 章间空隙
-        step = (span - gap * (len(chapters) - 1)) / max(1, len(flat) - len(chapters))
-        R = 1330
-        a = ang0 - span / 2
-        prev = hub["id"]
-        cur_ch = 0
-        for ci, ch_title, si, sec, url in flat:
-            if ci != cur_ch:
-                cur_ch = ci
-                if ci > 1:
-                    a += gap
-            child = dict(
-                id="SEC-%02d-%02d" % (ci, si), level="2", num=0, size=(9.5 if si == 1 else 7), child=True,
-                title=sec, short="%d.%d" % (ci, si),
-                cat="线性代数 · 第 %d 章" % ci,
-                url=url, color="#56b6c2",
-                x=round(R * math.cos(a), 1), y=round(R * math.sin(a), 1),
-                sections=[],
-            )
-            nodes.append(child)
-            edges.append(dict(a=prev, b=child["id"], label="", kind="chapter",
-                              color=EDGE_COLOR["chapter"]))
-            prev = child["id"]
-            a += step
-        hub["children"] = [c["id"] for c in nodes if c.get("child")]
+    # 中心 → 每个家族的最内层节点
+    for fam in order:
+        edges.append(dict(a=center["id"], b=family_members(fam)[0]["id"],
+                          kind="root", label="", color=colors[fam]))
+    # 家族内脊柱
+    for fam in order:
+        ms = family_members(fam)
+        for a, b in zip(ms, ms[1:]):
+            edges.append(dict(a=a["id"], b=b["id"], kind="spine", label="", color=colors[fam]))
 
+    # 跨家族弱连接（自动相似度）
+    items = simlib.docs()
+    vecs, _ = simlib.build_vectors(items)
+    idx = {it["key"]: i for i, it in enumerate(items)}
+    for i, u in enumerate(topics):
+        for v in topics[i + 1:]:
+            if u["family"] == v["family"] or "M" in (u["family"], v["family"]):
+                continue
+            s = simlib.cosine(vecs[idx[u["key"]]], vecs[idx[v["key"]]])
+            if s >= 0.18:
+                edges.append(dict(a=u["id"], b=v["id"], kind="weak", label="", color="#7d8697"))
+
+    # 手工桥（有名字的函子/对偶）
+    for ka, kb, label, _fa, _fb in BRIDGES:
+        a = next((x for x in topics if x["key"] == ka), None)
+        b = next((x for x in topics if x["key"] == kb), None)
+        if a and b:
+            edges.append(dict(a=a["id"], b=b["id"], kind="bridge", label=label, color="#e8c07a"))
+
+    # 线性代数 45 小节：绕着它排成小轮（放大才看标签）
+    hub = next(x for x in topics if x["key"] == "2-5")
+    flat = []
+    for ci, ch in enumerate(la_chapters(), 1):
+        for si, sec in enumerate(ch["sections"], 1):
+            flat.append((ci, si, sec, ch["url"]))
+    per_ring = 15
+    for i, (ci, si, sec, url) in enumerate(flat):
+        ring, slot = divmod(i, per_ring)
+        r = 100 + ring * 58
+        a = -math.pi / 2 + 2 * math.pi * slot / per_ring + ring * 0.14
+        sec_node = dict(
+            id="SEC-%02d-%02d" % (ci, si), key="", level="2", num=0, size=6.5,
+            title=sec, short="%d.%d" % (ci, si),
+            cat="线性代数 · 第 %d 章" % ci, url=url,
+            family="C", color=colors["C"], child=True,
+            x=round(hub["x"] + r * math.cos(a), 1), y=round(hub["y"] + r * math.sin(a), 1),
+        )
+        topics.append(sec_node)
+        edges.append(dict(a=hub["id"], b=sec_node["id"], kind="section", label="", color=colors["C"]))
+
+    families = [dict(key=f, name=FAMILY_NAME[f], color=colors[f],
+                     a0=round(sectors[f][0], 4), a1=round(sectors[f][1], 4), count=counts[f])
+                 for f in order]
+
+    payload = dict(center=center, families=families, nodes=topics,
+                   rings=LEVEL_RADIUS, levelLabel=LEVEL_LABEL)
     tpl = open(os.path.join(ASSETS, "map.html"), encoding="utf-8").read()
-    html = (tpl.replace("/*__DATA__*/", json.dumps(dict(levels=levels, nodes=nodes),
-                                                   ensure_ascii=False))
+    html = (tpl.replace("/*__DATA__*/", json.dumps(payload, ensure_ascii=False))
                .replace("/*__EDGES__*/", json.dumps(edges, ensure_ascii=False)))
     with open(os.path.join(OUT, "map.html"), "w", encoding="utf-8", newline="\n") as fh:
         fh.write(html)
-    return len(nodes), len(edges), missing
+    return len(topics), len(edges), []
 
 
 def build():
