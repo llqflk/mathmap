@@ -290,12 +290,13 @@ function draw() {
     drawShape(n, sx, sy, r, isActive);
     ctx.globalAlpha = 1;
 
-    const need = n.child ? 0.28 : ({ '0': 0, '0.5': 0.10, '1': 0.22, '2': 0.26, '3': 0.30 }[n.level] ?? 0.4);
+    const need = n.child ? 0.24 : ({ '0': 0, '0.5': 0.10, '1': 0.22, '2': 0.26, '3': 0.30 }[n.level] ?? 0.4);
     const labelOn = showLabels && cam.zoom > 0.16 && (isActive || cam.zoom >= need || (near && near.has(n.id)));
     if (labelOn && !dim) {
-      ctx.font = (isActive ? '600 ' : '') + '12px -apple-system,"Microsoft YaHei",sans-serif';
+      const fs = n.child ? 10.5 : 12;
+      ctx.font = (isActive ? '600 ' : '') + fs + 'px -apple-system,"Microsoft YaHei",sans-serif';
       const tw = ctx.measureText(n.short).width;
-      const ly = sy + r + 15;
+      const ly = sy + r + (n.child ? 12 : 15);
       const box = { x: sx - tw / 2 - 2, y: ly - 11, w: tw + 4, h: 15 };
       if (isActive || !overlaps(box)) {
         boxes.push(box);
@@ -431,7 +432,7 @@ q.addEventListener('input', () => {
 /* ---------------- 启动 ---------------- */
 const chN = DATA.nodes.filter(n => n.child).length;
 document.getElementById('sub').textContent =
-  (DATA.nodes.length - chN) + ' 个条目' + (chN ? ' + ' + chN + ' 章讲义' : '') + ' · 滚轮缩放 / 拖动平移';
+  (DATA.nodes.length - chN) + ' 个条目' + (chN ? ' + ' + chN + ' 个小节' : '') + ' · 滚轮缩放 / 拖动平移';
 // 支持 #sel=节点ID 直接定位（方便分享/截图）
 const qs = new URLSearchParams(location.hash.replace(/^#/, ''));
 

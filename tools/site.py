@@ -516,29 +516,40 @@ def build_map():
     for n in nodes:
         n["x"], n["y"] = pos[n["id"]]
 
-    # 线性代数 12 章：从「线性代数」节点拉出去的一条外圈分支链
+    # 线性代数讲义：45 个小节沿外圈排成一段弧，章与章之间留空隙
     chapters = la_chapters()
     hub = next((n for n in nodes if n["id"] == "L2-05"), None)
     if hub and chapters:
+        flat = []                       # [(章号, 章标题, 小节序号, 小节标题)]
+        for ci, ch in enumerate(chapters, 1):
+            for si, sec in enumerate(ch["sections"], 1):
+                flat.append((ci, ch["title"], si, sec, ch["url"]))
         ang0 = math.atan2(hub["y"], hub["x"]) or -math.pi / 2
-        span = math.radians(112)
-        R = 1305
+        span = math.radians(188)
+        gap = math.radians(2.2)         # 章间空隙
+        step = (span - gap * (len(chapters) - 1)) / max(1, len(flat) - len(chapters))
+        R = 1330
+        a = ang0 - span / 2
         prev = hub["id"]
-        for i, ch in enumerate(chapters):
-            a = ang0 - span / 2 + span * (i / max(1, len(chapters) - 1))
+        cur_ch = 0
+        for ci, ch_title, si, sec, url in flat:
+            if ci != cur_ch:
+                cur_ch = ci
+                if ci > 1:
+                    a += gap
             child = dict(
-                id="CH-" + ch["slug"][:2], level="2", num=0, size=9, child=True,
-                title=ch["title"], short=ch["short"],
-                cat="线性代数讲义 · 本章 " + str(len(ch["sections"])) + " 节",
-                url=ch["url"], color="#7fb069",
+                id="SEC-%02d-%02d" % (ci, si), level="2", num=0, size=(9.5 if si == 1 else 7), child=True,
+                title=sec, short="%d.%d" % (ci, si),
+                cat="线性代数 · 第 %d 章" % ci,
+                url=url, color="#56b6c2",
                 x=round(R * math.cos(a), 1), y=round(R * math.sin(a), 1),
-                sections=ch["sections"],
+                sections=[],
             )
             nodes.append(child)
-            edges.append(dict(a=prev, b=child["id"],
-                              label="章" if i == 0 else "",
-                              kind="chapter", color=EDGE_COLOR["chapter"]))
+            edges.append(dict(a=prev, b=child["id"], label="", kind="chapter",
+                              color=EDGE_COLOR["chapter"]))
             prev = child["id"]
+            a += step
         hub["children"] = [c["id"] for c in nodes if c.get("child")]
 
     tpl = open(os.path.join(ASSETS, "map.html"), encoding="utf-8").read()
