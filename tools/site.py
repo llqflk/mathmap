@@ -284,7 +284,8 @@ def collect():
 def sidebar_html(pages, current_url):
     out = ['<a class="brand" href="/index.html">数学范畴与应用实例</a>',
            '<div class="tagline">范畴论视角下的数学地图 · 54 条</div>',
-           '<div class="hot"><a href="/map.html">◆ 天赋树地图</a><br>'
+           '<div class="hot"><a href="/space.html">◆ 高维空间（三维嵌入）</a><br>'
+           '<a href="/map.html">◆ 天赋树地图</a><br>'
            '<a href="/3d.html">◆ 三维曲面（交互）</a></div>']
     for lvl, _, _ in LEVELS:
         items = [p for p in pages if p["level"] == lvl]
@@ -617,6 +618,31 @@ def build_map():
     return len(topics), len(edges), []
 
 
+def build_space():
+    """高维嵌入 → 三维散点页 space.html。"""
+    import embed
+    from families import FAMILY_NAME, ORDER, family_colors
+
+    d = embed.embed()
+    present = {n["family"] for n in d["nodes"]}
+    keys = [f for f in ORDER if f in present]
+    if "M" in present:
+        keys.append("M")
+    colors = family_colors(keys)
+    colors["M"] = "#f0a04b"
+    fams = [dict(key=f, name=FAMILY_NAME.get(f, f), color=colors[f],
+                 count=sum(1 for n in d["nodes"] if n["family"] == f)) for f in keys]
+    payload = dict(nodes=d["nodes"], edges=d["edges"], near=d["near"], stats=d["stats"],
+                   families=fams,
+                   levelName={"0": "元框架", "0.5": "范畴工具", "1": "抽象结构",
+                              "2": "具体实例", "3": "模型计算"})
+    tpl = open(os.path.join(ASSETS, "space.html"), encoding="utf-8").read()
+    html = tpl.replace("/*__DATA__*/", json.dumps(payload, ensure_ascii=False))
+    with open(os.path.join(OUT, "space.html"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(html)
+    return len(d["nodes"]), len(d["edges"]), d["stats"]
+
+
 def build():
     pages = collect()
     if os.path.isdir(OUT):
@@ -668,9 +694,12 @@ def build():
         fh.write(full_page)
 
     n_nodes, n_edges, missing = build_map()
+    s_nodes, s_edges, s_stats = build_space()
     dead = check_links()
     print("✓ 生成 %d 页 + 天赋树地图（%d 节点 / %d 条关系）到 %s"
-          % (len(pages) + 3, n_nodes, n_edges, OUT))
+          % (len(pages) + 4, n_nodes, n_edges, OUT))
+    print("  高维空间：%d 节点 / %d 边，维度 %d，5-近邻保持 %.0f%%" %
+          (s_nodes, s_edges, s_stats["dim"], s_stats["knn"] * 100))
     for a, b, label in missing:
         print("  ! 关系指向不存在的节点：%s → %s（%s）" % (a, b, label))
     for src, href in dead:

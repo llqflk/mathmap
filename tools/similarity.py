@@ -90,7 +90,7 @@ def docs():
                 break
         key = "%s-%s" % (s["level"], s["num"] or 1)
         out.append(dict(key=key, level=s["level"], num=s["num"] or 1,
-                        title=s["title"], body=body, cat=cat,
+                        title=s["title"], body=body, cat=cat, url=s["path"] + "/index.html",
                         family=FAMILY.get(key, "?")))
     return out
 
